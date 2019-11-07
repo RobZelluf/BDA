@@ -1,0 +1,67 @@
+---
+title: "ProjectReport"
+author: "Daniel Hopkins & Rob Verbeek"
+date: "11/7/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rstan)
+```
+
+
+## Reading in the ESS Data
+```{r read_data}
+ESSData <- read.csv(file="./ESS8e02.1_F1.csv", header=TRUE, sep=",")
+```
+
+```{r selecting data rows and variables}
+# N = 1000 # Number of sample points
+
+set.seed(1234)
+
+# LIMIT TO ONE COUNTRY
+ESSData = subset(ESSData,cntry=="NL")
+
+sampleRows = seq(1,length(ESSData$cntry))
+
+sampleRows = subset(sampleRows, ESSData$lrscale[sampleRows]<=10)
+sampleRows = subset(sampleRows, ESSData$happy[sampleRows]<=10)
+sampleRows = subset(sampleRows, ESSData$aesfdrk[sampleRows]<=10)
+sampleRows = subset(sampleRows, ESSData$sclmeet[sampleRows]<=10)
+sampleRows = subset(sampleRows, ESSData$sclact[sampleRows]<=10)
+sampleRows = subset(sampleRows, ESSData$imwbcnt[sampleRows]<=10)
+
+country <- ESSData$cntry[sampleRows]
+
+lrscale <- ESSData$lrscale[sampleRows]
+safety <- ESSData$aesfdrk[sampleRows]
+happy <- ESSData$happy[sampleRows]
+socialMeet <- ESSData$sclmeet[sampleRows]
+socialAct <- ESSData$sclact[sampleRows]
+immigrants <- ESSData$imwbcnt[sampleRows]
+
+N = length(lrscale)
+```
+
+```{r checking averages for fun}
+#   cAT = 0
+#   cNL = 0
+#   hAT = 0
+#   hNL = 0
+# for(i in seq(1,N)) {
+#   if(country[i] == "AT" && happy[i]>=0) {
+#     cAT = cAT + 1
+#     hAT = hAT + happy[i]
+#   }
+#   if(country[i] == "NL") {
+#     cNL = cNL + 1
+#     hNL = hNL + happy[i]
+#   }
+# }
+# print(hAT)
+# print(cAT)
+#   print(hAT/cAT)
+#   print(hNL/cNL)
+```
