@@ -13,7 +13,7 @@ library(rstan)
 
 ## Reading in the ESS Data
 ```{r read_data}
-ESSData <- read.csv(file="./ESS8e02.1_F1.csv", header=TRUE, sep=",")
+ESSData <- read.csv(file="data/ESS8e02.1_F1.csv", header=TRUE, sep=",")
 ```
 
 ```{r selecting data rows and variables}
@@ -35,14 +35,26 @@ sampleRows = subset(sampleRows, ESSData$imwbcnt[sampleRows]<=10)
 
 country <- ESSData$cntry[sampleRows]
 
-lrscale <- ESSData$lrscale[sampleRows]
+lrscale <- ESSData$lrscale[sampleRows] / 10
 safety <- ESSData$aesfdrk[sampleRows]
 happy <- ESSData$happy[sampleRows]
 socialMeet <- ESSData$sclmeet[sampleRows]
 socialAct <- ESSData$sclact[sampleRows]
 immigrants <- ESSData$imwbcnt[sampleRows]
 
-N = length(lrscale)
+M = length(lrscale)
+```
+
+```{r}
+N = 5
+
+data <- list(N = N, M = M, y = lrscale, x = matrix(c(safety, happy, socialMeet, socialAct, immigrants), ncol=5))
+fit <- stan('spectrum.stan', data = data)
+s = extract(fit)
+```
+
+```{r}
+s
 ```
 
 ```{r checking averages for fun}
