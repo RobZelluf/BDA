@@ -1,0 +1,47 @@
+---
+title: "VariableSelection"
+output: html_document
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rstan)
+library(ggplot2)
+library(corrplot)
+# library(tidyverse)
+# library(caret)
+# library(GGally)
+# library(bayesplot)
+library(rstanarm)
+SEED = 1234 
+```
+
+
+## Reading in the ESS Data
+```{r read_data}
+ESSData <- read.csv(file="data/ESS8e02.1_F1.csv", header=TRUE, sep=",")
+```
+
+```{r selecting data rows and variables}
+# N = 1000 # Number of sample points
+
+set.seed(1234)
+
+# LIMIT TO ONE COUNTRY
+# ESSData = subset(ESSData,cntry=="NL")
+
+sampleRows = seq(1,length(ESSData$cntry))
+
+ESSData = ESSData[,6:534]
+
+lrscale <- ESSData$lrscale / 10
+
+M = length(lrscale)
+```
+
+```{r correlation matrix}
+cor(data.frame(ESSData,lrscale))
+corrplot(cor(data.frame(ESSData,lrscale)))
+```

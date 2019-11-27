@@ -47,14 +47,15 @@ sampleRows = subset(sampleRows, ESSData$lknemny[sampleRows]<=10)
 country <- ESSData$cntry[sampleRows]
 
 lrscale <- ESSData$lrscale[sampleRows] / 10
-safety <- ESSData$aesfdrk[sampleRows]
-happy <- ESSData$happy[sampleRows]
-socialMeet <- ESSData$sclmeet[sampleRows]
-socialAct <- ESSData$sclact[sampleRows]
-immigrants <- ESSData$imwbcnt[sampleRows]
-money <- ESSData$lknemny[sampleRows]
+safety <- ESSData$aesfdrk[sampleRows] / 10 
+happy <- ESSData$happy[sampleRows] / 10 
+socialMeet <- ESSData$sclmeet[sampleRows] / 10 
+socialAct <- ESSData$sclact[sampleRows] / 10 
+immigrants <- ESSData$imwbcnt[sampleRows] / 10 
+money <- ESSData$lknemny[sampleRows] / 10 
 
 spectrumData = data.frame("safety"=safety, "happy"=happy, "socialMeet"=socialMeet, "socialAct"=socialAct, "immigrants"=immigrants, "money"=money)
+# spectrumData = data.frame("safety"=safety, "happy"=happy)
 
 M = length(lrscale)
 ```
