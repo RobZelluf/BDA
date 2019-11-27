@@ -5,9 +5,19 @@ date: "11/7/2019"
 output: html_document
 ---
 
+The plan: Implement all the models from the Diabetes example. Then build a hierarchical model with countries as the "machines" and show that it works better than "separate" or "pooled" models.
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(rstan)
+library(ggplot2)
+library(corrplot)
+# library(tidyverse)
+# library(caret)
+# library(GGally)
+# library(bayesplot)
+library(rstanarm)
+SEED = 1234 
 ```
 
 
@@ -32,6 +42,7 @@ sampleRows = subset(sampleRows, ESSData$aesfdrk[sampleRows]<=10)
 sampleRows = subset(sampleRows, ESSData$sclmeet[sampleRows]<=10)
 sampleRows = subset(sampleRows, ESSData$sclact[sampleRows]<=10)
 sampleRows = subset(sampleRows, ESSData$imwbcnt[sampleRows]<=10)
+sampleRows = subset(sampleRows, ESSData$lknemny[sampleRows]<=10)
 
 country <- ESSData$cntry[sampleRows]
 
@@ -41,14 +52,42 @@ happy <- ESSData$happy[sampleRows]
 socialMeet <- ESSData$sclmeet[sampleRows]
 socialAct <- ESSData$sclact[sampleRows]
 immigrants <- ESSData$imwbcnt[sampleRows]
+money <- ESSData$lknemny[sampleRows]
+
+spectrumData = data.frame("safety"=safety, "happy"=happy, "socialMeet"=socialMeet, "socialAct"=socialAct, "immigrants"=immigrants, "money"=money)
 
 M = length(lrscale)
 ```
 
+```{r correlation matrix}
+corrplot(cor(data.frame(spectrumData,lrscale)))
+```
+
+```{r stan glm model}
+binary_spectrum = as.integer(lrscale >= 0.5)
+
+t_prior <- student_t(df = 7, location = 0.5, scale = 0.25)
+t_prior
+post1 <- stan_glm(binary_spectrum ~ ., data = spectrumData,
+                 family = binomial(link = "logit"), 
+                 prior = t_prior, prior_intercept = t_prior, QR=TRUE,
+                 seed = SEED)
+post1$coefficients
+```
+```{r glm plot}
+pplot<-plot(post1, "areas", prob = 0.95, prob_outer = 1)
+pplot+ geom_vline(xintercept = 0)
+
+round(posterior_interval(post1, prob = 0.9), 2)
+(loo1 <- loo(post1, save_psis = TRUE))
+post0 <- update(post1, formula = binary_spectrum ~ 1, QR = FALSE)
+(loo0 <- loo(post0))
+compare_models(loo0, loo1)
+```
 ```{r}
 N = 5
 
-data <- list(N = N, M = M, y = lrscale, x = matrix(c(safety, happy, socialMeet, socialAct, immigrants), ncol=5))
+data <- list(N = N, M = M, y = lrscale, x = spectrumData)
 fit <- stan('spectrum.stan', data = data)
 s = extract(fit)
 ```
