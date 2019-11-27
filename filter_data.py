@@ -2,7 +2,7 @@ import pandas as pd
 from time import sleep
 
 
-cols_to_keep = ["lrscale", "cntry"]
+cols_to_keep = ["lrscale", "cntry", "cntry", "aesfdrk", "sclmeet", "sclact", "imwbcnt", "lknemny"]
 
 
 def check_if_nominal(data):
