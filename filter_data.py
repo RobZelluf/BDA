@@ -128,6 +128,7 @@ def filter_yes_no(df):
     print("Altered", count, "columns")
     return df
 
+
 def remove_nonfull_columns(df):
     print("Filtering non-full columns")
 
