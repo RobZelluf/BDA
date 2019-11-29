@@ -7,6 +7,10 @@ five_scale_columns = []
 
 non_values = [55, 66, 77, 88, 99, 666, 777, 888, 999, 14, 16, 18]
 
+yn_non = [6, 7, 8, 9]
+yn_non = [x + 3.5 for x in yn_non]
+non_values.extend(yn_non)
+
 
 def check_if_nominal(data):
     nom_values = [6666, 7777, 8888, 9999, 66666, 77777, 88888, 99999, 555555, 11010, 55]
@@ -35,7 +39,6 @@ def remove_text_columns(df):
     print("Filtering text columns")
 
     columns = list(df)
-    num_entries = len(df)
 
     count = 0
     for i in columns:
@@ -107,6 +110,22 @@ def filter_five_scale(df):
     return df
 
 
+def filter_yes_no(df):
+    print("Filtering yes-no columns")
+
+    columns = list(df)
+    count = 0
+    for i in columns:
+        if i in cols_to_keep:
+            continue
+
+        if len([x for x in df[i] if x in [3, 4, 5]]) == 0:
+            df[i] += 3.5
+            count += 1
+
+    print("Altered", count, "columns")
+    return df
+
 def remove_nonfull_columns(df):
     print("Filtering non-full columns")
 
@@ -173,6 +192,8 @@ print("---")
 df = remove_nominal_columns(df)
 print("---")
 df = remove_above_ten_columns(df)
+print("---")
+df = filter_yes_no(df)
 print("---")
 df = filter_five_scale(df)
 print("---")
