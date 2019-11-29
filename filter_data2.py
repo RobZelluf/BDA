@@ -21,6 +21,9 @@ formats = list(set(metadata["Format"]))
 print(formats)
 
 non_values = [55, 66, 77, 88, 99, 666, 777, 888, 999, 14, 16, 18]
+yn_non = [6, 7, 8, 9]
+yn_non = [((x + -1) * 4) + 3 for x in yn_non]
+non_values.extend(yn_non)
 
 
 def check_none_answer(data):
