@@ -8,7 +8,7 @@ five_scale_columns = []
 non_values = [55, 66, 77, 88, 99, 666, 777, 888, 999, 14, 16, 18]
 
 yn_non = [6, 7, 8, 9]
-yn_non = [x + 3.5 for x in yn_non]
+yn_non = [((x + -1) * 4) + 3 for x in yn_non]
 non_values.extend(yn_non)
 
 
@@ -120,7 +120,9 @@ def filter_yes_no(df):
             continue
 
         if len([x for x in df[i] if x in [3, 4, 5]]) == 0:
-            df[i] += 3.5
+            df[i] -= 1
+            df[i] *= 4
+            df[i] += 3
             count += 1
 
     print("Altered", count, "columns")
