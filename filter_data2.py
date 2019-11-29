@@ -85,6 +85,23 @@ def delete_column(row):
     return False
 
 
+def filter_five_scale(df):
+    print("Filtering 5-scale columns")
+
+    columns = list(df)
+    count = 0
+    for i in columns:
+        if i in cols_to_keep:
+            continue
+
+        if len([x for x in df[i] if x == 6]) == 0 and max(df[i]) < 10:
+            df[i] *= 2
+            count += 1
+
+    print("Altered", count, "columns")
+    return df
+
+
 def filter_binary(df):
     print("Filtering binary columns")
 
@@ -137,6 +154,7 @@ for col in columns_to_delete:
 data = remove_sparse_columns(data)
 data = remove_above_ten_columns(data)
 data = filter_binary(data)
+data = filter_five_scale(data)
 data = remove_none_answers_rows(data)
 
 
