@@ -3,6 +3,9 @@ from time import sleep
 
 
 cols_to_keep = ["lrscale", "cntry", "cntry", "aesfdrk", "sclmeet", "sclact", "imwbcnt", "lknemny", "yrbrn"]
+five_scale_columns = []
+
+non_values = [55, 66, 77, 88, 99, 666, 777, 888, 999, 14, 16, 18]
 
 
 def check_if_nominal(data):
@@ -15,15 +18,13 @@ def check_if_nominal(data):
 
 
 def check_none_answer(data):
-    none_answers = [99, 88, 77, 66, 55]
-    for val in none_answers:
+    for val in non_values:
         if val in data.values:
             return True
 
 
 def count_none_answer(data):
     count = 0
-    non_values = [55, 66, 77, 88, 99, 666, 777, 888, 999]
     for val in non_values:
         count += len(data[data.values == val])
 
@@ -85,6 +86,24 @@ def remove_above_ten_columns(df):
             del df[i]
 
     print("Removed", count, "columns")
+    return df
+
+
+def filter_five_scale(df):
+    print("Filtering 5-scale columns")
+
+    columns = list(df)
+    count = 0
+    for i in columns:
+        if i in cols_to_keep:
+            continue
+
+        if len([x for x in df[i] if x == 6]) == 0 and max(df[i]) < 10:
+            df[i] *= 2
+            five_scale_columns.append(i)
+            count += 1
+
+    print("Altered", count, "columns")
     return df
 
 
@@ -152,6 +171,8 @@ print("---")
 df = remove_nonfull_columns(df)
 print("---")
 df = remove_nominal_columns(df)
+print("---")
+df = filter_five_scale(df)
 print("---")
 df = remove_sparse_columns(df)
 print("---")
