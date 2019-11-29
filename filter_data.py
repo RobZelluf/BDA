@@ -6,7 +6,7 @@ cols_to_keep = ["lrscale", "cntry", "cntry", "aesfdrk", "sclmeet", "sclact", "im
 
 
 def check_if_nominal(data):
-    nom_values = [6666, 7777, 8888, 9999, 66666, 77777, 88888, 99999, 555555, 11010]
+    nom_values = [6666, 7777, 8888, 9999, 66666, 77777, 88888, 99999, 555555, 11010, 55]
     for val in nom_values:
         if val in data.values:
             return True
@@ -15,7 +15,7 @@ def check_if_nominal(data):
 
 
 def check_none_answer(data):
-    none_answers = [99, 88, 77, 66]
+    none_answers = [99, 88, 77, 66, 55]
     for val in none_answers:
         if val in data.values:
             return True
@@ -23,7 +23,7 @@ def check_none_answer(data):
 
 def count_none_answer(data):
     count = 0
-    non_values = [66, 77, 88, 99, 666, 777, 888, 999]
+    non_values = [55, 66, 77, 88, 99, 666, 777, 888, 999]
     for val in non_values:
         count += len(data[data.values == val])
 
@@ -116,7 +116,6 @@ def remove_sparse_columns(df):
     return df
 
 
-
 filename = "data/ESS8e02.1_F1.csv"
 df = pd.read_csv(filename)
 
@@ -137,7 +136,7 @@ df = remove_none_answers_rows(df)
 print("---")
 
 print("Number of columns", len(list(df)), "and rows", len(df))
-print("Reduced from", num_cols, "to", len(list(df)), "columns and",num_entries, "to", len(df), "rows")
+print("Reduced from", num_cols, "to", len(list(df)), "columns and", num_entries, "to", len(df), "rows")
 
 
 df.to_csv("data/filtered_data.csv")
