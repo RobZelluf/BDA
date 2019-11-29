@@ -2,7 +2,7 @@ import pandas as pd
 from time import sleep
 
 
-cols_to_keep = ["lrscale", "cntry", "cntry", "aesfdrk", "sclmeet", "sclact", "imwbcnt", "lknemny"]
+cols_to_keep = ["lrscale", "cntry", "cntry", "aesfdrk", "sclmeet", "sclact", "imwbcnt", "lknemny", "yrbrn"]
 
 
 def check_if_nominal(data):
@@ -57,7 +57,30 @@ def remove_nominal_columns(df):
     for i in columns:
         if i in cols_to_keep:
             continue
+
         if check_if_nominal(df[i]):
+            count += 1
+            del df[i]
+            continue
+
+        if max(df[i]) <= 2:
+            count += 1
+            del df[i]
+
+    print("Removed", count, "columns")
+    return df
+
+
+def remove_above_ten_columns(df):
+    print("Filtering >10 columns")
+
+    columns = list(df)
+
+    count = 0
+    for i in columns:
+        if i in cols_to_keep:
+            continue
+        if max(df[i]) > 10:
             count += 1
             del df[i]
 
@@ -124,13 +147,15 @@ num_entries = len(df)
 
 
 print("Number of columns", len(list(df)), "and rows", len(df))
+df = remove_text_columns(df)
+print("---")
 df = remove_nonfull_columns(df)
 print("---")
 df = remove_nominal_columns(df)
 print("---")
 df = remove_sparse_columns(df)
 print("---")
-df = remove_text_columns(df)
+df = remove_above_ten_columns(df)
 print("---")
 df = remove_none_answers_rows(df)
 print("---")
@@ -138,5 +163,5 @@ print("---")
 print("Number of columns", len(list(df)), "and rows", len(df))
 print("Reduced from", num_cols, "to", len(list(df)), "columns and", num_entries, "to", len(df), "rows")
 
-
-df.to_csv("data/filtered_data.csv")
+df = df.reindex(sorted(df.columns), axis=1)
+df.to_csv("data/filtered_data.csv", index=False)
