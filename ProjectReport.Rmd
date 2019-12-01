@@ -47,7 +47,7 @@ set.seed(1234)
 
 M = length(ESSData$lrscale)
 ESSData <- read.csv(file="data/filtered_data2.csv", header=TRUE, sep=",")
-ESSData = ESSData / 10
+
 
 test_rows = sample(seq(1,M),1000)
 
@@ -92,6 +92,8 @@ best_columns = order(abs(lr_cor),decreasing=TRUE)[2:21]
 
 new_data = training_data[best_columns]
 corrplot(cor(data.frame(new_data,training_data$lrscale)))
+
+top_variables
 ```
 
 ```{r validation with basic correlation model}
