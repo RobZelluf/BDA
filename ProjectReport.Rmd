@@ -7,6 +7,23 @@ output: html_document
 
 The plan: Implement all the models from the Diabetes example. Then build a hierarchical model with countries as the "machines" and show that it works better than "separate" or "pooled" models.
 
+1) SHITTY data and survey setup
+
+Research Questions: 
+1) Which variables are the most important correlates with political spectrum.
+
+2) Which model best predicts political spectrum?
+
+3) Does a hierarchical model (by country) perform better than a pooled model in cross-fold testing?
+
+4) Sensitivity to priors
+
+5) LOO testing of models
+
+6) Country specific variable model vs. hierarchical model with same variables
+
+7) Adding more variables
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(rstan)
@@ -22,59 +39,110 @@ SEED = 1234
 
 
 ## Reading in the ESS Data
-```{r read_data}
-ESSData <- read.csv(file="data/ESS8e02.1_F1.csv", header=TRUE, sep=",")
-```
 
 ```{r selecting data rows and variables}
 # N = 1000 # Number of sample points
 
 set.seed(1234)
 
+M = length(ESSData$lrscale)
+ESSData <- read.csv(file="data/filtered_data2.csv", header=TRUE, sep=",")
+ESSData = ESSData / 10
+
+test_rows = sample(seq(1,M),1000)
+
+training_data = data.frame(ESSData[-test_rows,])
+
+test_data = data.frame(ESSData[test_rows,])
+
+
 # LIMIT TO ONE COUNTRY
-ESSData = subset(ESSData,cntry=="NL")
+# ESSData = subset(ESSData,cntry=="NL")
+# 
+# sampleRows = seq(1,length(ESSData$cntry))
+# 
+# sampleRows = subset(sampleRows, ESSData$lrscale[sampleRows]<=10)
+# sampleRows = subset(sampleRows, ESSData$happy[sampleRows]<=10)
+# sampleRows = subset(sampleRows, ESSData$aesfdrk[sampleRows]<=10)
+# sampleRows = subset(sampleRows, ESSData$sclmeet[sampleRows]<=10)
+# sampleRows = subset(sampleRows, ESSData$sclact[sampleRows]<=10)
+# sampleRows = subset(sampleRows, ESSData$imwbcnt[sampleRows]<=10)
+# sampleRows = subset(sampleRows, ESSData$lknemny[sampleRows]<=10)
+# 
+# country <- ESSData$cntry[sampleRows]
+# 
+# lrscale <- ESSData$lrscale[sampleRows] / 10
 
-sampleRows = seq(1,length(ESSData$cntry))
-
-sampleRows = subset(sampleRows, ESSData$lrscale[sampleRows]<=10)
-sampleRows = subset(sampleRows, ESSData$happy[sampleRows]<=10)
-sampleRows = subset(sampleRows, ESSData$aesfdrk[sampleRows]<=10)
-sampleRows = subset(sampleRows, ESSData$sclmeet[sampleRows]<=10)
-sampleRows = subset(sampleRows, ESSData$sclact[sampleRows]<=10)
-sampleRows = subset(sampleRows, ESSData$imwbcnt[sampleRows]<=10)
-sampleRows = subset(sampleRows, ESSData$lknemny[sampleRows]<=10)
-
-country <- ESSData$cntry[sampleRows]
-
-lrscale <- ESSData$lrscale[sampleRows] / 10
-safety <- ESSData$aesfdrk[sampleRows] / 10 
-happy <- ESSData$happy[sampleRows] / 10 
-socialMeet <- ESSData$sclmeet[sampleRows] / 10 
-socialAct <- ESSData$sclact[sampleRows] / 10 
-immigrants <- ESSData$imwbcnt[sampleRows] / 10 
-money <- ESSData$lknemny[sampleRows] / 10 
-
-spectrumData = data.frame("safety"=safety, "happy"=happy, "socialMeet"=socialMeet, "socialAct"=socialAct, "immigrants"=immigrants, "money"=money)
+# safety <- ESSData$aesfdrk[sampleRows] / 10 
+# happy <- ESSData$happy[sampleRows] / 10 
+# socialMeet <- ESSData$sclmeet[sampleRows] / 10 
+# socialAct <- ESSData$sclact[sampleRows] / 10 
+# immigrants <- ESSData$imwbcnt[sampleRows] / 10 
+# money <- ESSData$lknemny[sampleRows] / 10 
+# 
+# spectrumData = data.frame("safety"=safety, "happy"=happy, "socialMeet"=socialMeet, "socialAct"=socialAct, "immigrants"=immigrants, "money"=money)
 # spectrumData = data.frame("safety"=safety, "happy"=happy)
-
-M = length(lrscale)
 ```
 
 ```{r correlation matrix}
-corrplot(cor(data.frame(spectrumData,lrscale)))
+c = cor(data.frame(training_data))
+lr_cor = c["lrscale",]
+top_variables = lr_cor[order(abs(lr_cor),decreasing=TRUE)][2:21]
+best_columns = order(abs(lr_cor),decreasing=TRUE)[2:21]
+
+new_data = training_data[best_columns]
+corrplot(cor(data.frame(new_data,training_data$lrscale)))
 ```
 
+```{r validation with basic correlation model}
+correct = 0
+wrong = 0
+prediction = c()
+for(n in seq(1,1000)) {
+  prediction = append(prediction, as.numeric(test_data[n,best_columns])%*%as.numeric(lr_cor[best_columns]))
+  if((prediction[n]<-0.1 && test_data$lrscale[n]<0.5) || (prediction[n]>0.1 && test_data$lrscale[n]>0.5)) {
+    correct = correct + 1
+  }
+  else if((prediction[n]>0.1 && test_data$lrscale[n]<0.5) || (prediction[n]<-0.1 && test_data$lrscale[n]>0.5)) {
+    wrong = wrong + 1
+  }
+}
+correct
+wrong
+```
+
+
 ```{r stan glm model}
-binary_spectrum = as.integer(lrscale >= 0.5)
+binary_spectrum = as.integer(training_data$lrscale >= 0.5)
 
 t_prior <- student_t(df = 7, location = 0.5, scale = 0.25)
 t_prior
-post1 <- stan_glm(binary_spectrum ~ ., data = spectrumData,
+options(mc.cores = parallel::detectCores())
+post1 <- stan_glm(binary_spectrum ~ ., data = new_data,
                  family = binomial(link = "logit"), 
                  prior = t_prior, prior_intercept = t_prior, QR=TRUE,
                  seed = SEED)
 post1$coefficients
 ```
+
+```{r cross validation with stan_glm model}
+correct = 0
+wrong = 0
+prediction = c()
+for(n in seq(1,1000)) {
+  prediction = append(prediction, as.numeric(test_data[n,best_columns])%*%as.numeric(post1$coefficients[2:21])+post1$coefficients[1])
+  if((prediction[n]<-0.1 && test_data$lrscale[n]<0.5) || (prediction[n]>0.1 && test_data$lrscale[n]>0.5)) {
+    correct = correct + 1
+  }
+  else if((prediction[n]>0.1 && test_data$lrscale[n]<0.5) || (prediction[n]<-0.1 && test_data$lrscale[n]>0.5)) {
+    wrong = wrong + 1
+  }
+}
+correct
+wrong
+```
+
+
 ```{r glm plot}
 pplot<-plot(post1, "areas", prob = 0.95, prob_outer = 1)
 pplot+ geom_vline(xintercept = 0)
@@ -85,12 +153,43 @@ post0 <- update(post1, formula = binary_spectrum ~ 1, QR = FALSE)
 (loo0 <- loo(post0))
 compare_models(loo0, loo1)
 ```
-```{r}
-N = 5
 
-data <- list(N = N, M = M, y = lrscale, x = spectrumData)
-fit <- stan('spectrum.stan', data = data)
+```{r}
+K = 20
+N = length(training_data$lrscale)
+
+data <- list(N = N, K = K, y = training_data$lrscale, x = training_data[best_columns])
+fit <- stan('spectrumLinear.stan', data = data)
 s = extract(fit)
+```
+
+```{r}
+correct = 0
+wrong = 0
+prediction = c()
+w = colSums(s$beta)/2000
+
+for(n in seq(1,1000)) {
+  prediction = append(prediction, as.numeric(test_data[n,best_columns])%*%w+mean(s$alpha))
+  if((prediction[n]<-0.1 && test_data$lrscale[n]<0.5) || (prediction[n]>0.1 && test_data$lrscale[n]>0.5)) {
+    correct = correct + 1
+  }
+  else if((prediction[n]>0.1 && test_data$lrscale[n]<0.5) || (prediction[n]<-0.1 && test_data$lrscale[n]>0.5)) {
+    wrong = wrong + 1
+  }
+}
+correct
+wrong
+```
+
+
+```{r}
+# N = 20
+# M = length(training_data$lrscale)
+# 
+# data <- list(N = N, M = M, y = training_data$lrscale, x = training_data[best_columns])
+# fit <- stan('spectrum.stan', data = data)
+# s = extract(fit)
 ```
 
 ```{r}

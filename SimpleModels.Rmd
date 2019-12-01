@@ -1,0 +1,42 @@
+---
+title: "Simple Models"
+author: "Daniel Hopkins & Rob Verbeek"
+date: "12/1/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rstan)
+library(ggplot2)
+library(corrplot)
+library(rstanarm)
+library("bayesplot")
+theme_set(bayesplot::theme_default(base_family = "sans"))
+SEED = 1234 
+```
+
+## Reading in the ESS Data
+
+```{r selecting data rows and variables}
+# N = 1000 # Number of sample points
+
+set.seed(1234)
+
+M = length(ESSData$lrscale)
+ESSData <- read.csv(file="data/filtered_data2.csv", header=TRUE, sep=",")
+ESSData = ESSData / 10
+
+test_rows = sample(seq(1,M),1000)
+
+training_data = data.frame(ESSData[-test_rows,])
+
+test_data = data.frame(ESSData[test_rows,])
+```
+
+
+
+```{r}
+fit_lm_1 <- stan_glm(ESSData$lrscale ~ ESSData$gincdif, data=training_data, refresh = 0)
+print(fit_lm_1)
+
