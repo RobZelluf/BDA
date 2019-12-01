@@ -2,6 +2,9 @@ import pandas as pd
 from time import sleep
 
 cols_to_keep = ["lrscale", "cntry", "cntry", "aesfdrk", "sclmeet", "sclact", "imwbcnt", "lknemny", "yrbrn"]
+cols_to_remove = ["dweight", "pspwght", "pweight"]
+
+four_scale_columns = ["lknemny"]
 
 filename = "data/variables.csv"
 metadata = pd.read_csv(filename, index_col="Name")
@@ -15,14 +18,16 @@ columns_to_delete = []
 binary_columns = []
 
 scale_types = list(set(metadata["Scale_type"]))
-print(scale_types)
 
 formats = list(set(metadata["Format"]))
-print(formats)
 
 non_values = [55, 66, 77, 88, 99, 666, 777, 888, 999, 14, 16, 18]
 yn_non = [6, 7, 8, 9]
 yn_non = [((x + -1) * 4) + 3 for x in yn_non]
+non_values.extend(yn_non)
+
+yn_non = [7, 8, 9]
+yn_non = [x * 2.5 for x in yn_non]
 non_values.extend(yn_non)
 
 
@@ -30,6 +35,11 @@ def check_none_answer(data):
     for val in non_values:
         if val in data.values:
             return True
+
+    if data.isna().sum() > 0:
+        return True
+
+    return False
 
 
 def count_none_answer(data):
@@ -102,6 +112,18 @@ def filter_five_scale(df):
     return df
 
 
+def filter_four_scale(df):
+    print("Filtering 4-scale columns")
+
+    count = 0
+    for i in four_scale_columns:
+            df[i] *= 2.5
+            count += 1
+
+    print("Altered", count, "columns")
+    return df
+
+
 def filter_binary(df):
     print("Filtering binary columns")
 
@@ -141,6 +163,10 @@ def remove_above_ten_columns(df):
 
 
 for index, row in metadata.iterrows():
+    if index in cols_to_remove:
+        columns_to_delete.append(index)
+        continue
+
     if delete_column(row):
         columns_to_delete.append(index)
 
@@ -155,6 +181,7 @@ data = remove_sparse_columns(data)
 data = remove_above_ten_columns(data)
 data = filter_binary(data)
 data = filter_five_scale(data)
+data = filter_four_scale(data)
 data = remove_none_answers_rows(data)
 
 
