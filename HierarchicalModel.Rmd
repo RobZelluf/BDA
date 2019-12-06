@@ -26,6 +26,9 @@ set.seed(1234)
 
 M = length(ESSData$lrscale)
 ESSData <- read.csv(file="data/filtered_data2.csv", header=TRUE, sep=",")
+
+
+
 country = ESSData$cntry
 age = 2016 - ESSData$yrbrn
 age = age/max(age)
@@ -44,6 +47,8 @@ sample_data = data.frame(ESSData[sample_rows,])
 training_data = data.frame(sample_data[-test_rows,])
 
 test_data = data.frame(sample_data[test_rows,])
+
+
 ```
 
 ```{r correlation matrix}
@@ -52,13 +57,14 @@ lrscale_cor = c["lrscale",]
 best_variables = lrscale_cor[order(abs(lrscale_cor),decreasing=TRUE)][1:21]
 best_columns = order(abs(lr_cor),decreasing=TRUE)[1:21]
 sample_data_best_vars = sample_data[best_columns]
+sample_data_best_vars = cbind(country[sample_rows], sample_data_best_vars)
 best_variables
 ```
 
 
 ```{r}
 t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
-fit_lm_1 <- stan_glm(lrscale ~ gincdif, data=sample_data_best_vars, prior = t_prior, prior_intercept = t_prior)
+fit_lm_1 <- stan_glmer(lrscale ~ gincdif | country[sample_rows], data=sample_data_best_vars, prior = t_prior, prior_intercept = t_prior)
 print(fit_lm_1, digits=2)
 ```
 
