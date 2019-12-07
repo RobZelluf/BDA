@@ -1,18 +1,19 @@
 ---
-title: "Simple Models"
+  title: "Simple Models"
 author: "Daniel Hopkins & Rob Verbeek"
 date: "12/1/2019"
 output: html_document
 ---
-
-```{r setup, include=FALSE}
+  
+  ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(rstan)
 library(ggplot2)
 library(corrplot)
 library(rstanarm)
-library(scatterplot3d)
 library("bayesplot")
+library(projpred)
+library(dplyr)
 theme_set(bayesplot::theme_default(base_family = "sans"))
 SEED = 1234 
 ```
@@ -24,8 +25,9 @@ SEED = 1234
 
 set.seed(1234)
 
-M = length(ESSData$lrscale)
 ESSData <- read.csv(file="data/filtered_data2.csv", header=TRUE, sep=",")
+
+M = length(ESSData$lrscale)
 country = ESSData$cntry
 age = 2016 - ESSData$yrbrn
 age = age/max(age)
@@ -72,9 +74,72 @@ sample_data_best_5 = sample_data[,vs$vind[1:5]]
 ```
 
 ```{r}
+# # TOO SLOW
+# cvs <- cv_varsel(fit_lm_all)
+# suggest_size(cvs)
+```
+```{r}
+varsel_plot(vs, stats = c('elpd', 'rmse'), deltas=T)
+```
+
+```{r}
+# Try horseshoe prior
 t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
 fit_lm_1 <- stan_glm(lrscale ~ gincdif, data=sample_data_best_vars, prior = t_prior, prior_intercept = t_prior)
 print(fit_lm_1, digits=2)
+```
+```{r}
+tidy_predictions <- function(mat_pred, df_data, obs_name = "observation",
+                             prob_lwr = .025, prob_upr = .975) {
+  # Get data-frame with one row per fitted value per posterior sample
+  df_pred <- mat_pred %>% 
+    as_data_frame %>% 
+    setNames(seq_len(ncol(.))) %>% 
+    tibble::rownames_to_column("posterior_sample") %>% 
+    tidyr::gather_(obs_name, "fitted", setdiff(names(.), "posterior_sample"))
+  df_pred
+  
+  # Helps with joining later
+  class(df_pred[[obs_name]]) <- class(df_data[[obs_name]])
+  
+  # Summarise prediction interval for each observation
+  df_pred %>% 
+    group_by_(obs_name) %>% 
+    summarise(median = median(fitted),
+              lower = quantile(fitted, prob_lwr), 
+              upper = quantile(fitted, prob_upr)) %>% 
+    left_join(df_data, by = obs_name)
+}
+```
+
+```{r}
+g_rng <- range(sample_data$gincdif) 
+g_steps <- seq(g_rng[1], g_rng[2], length.out = 80)
+new_data <- data.frame(
+  observation = seq_along(g_steps), 
+  gincdif = g_steps)
+pred_post <- posterior_predict(fit_lm_1, newdata = new_data)
+dim(pred_post)
+
+df_pred_post <- tidy_predictions(pred_post, new_data)
+df_pred_post
+
+```
+
+```{r}
+ggplot(sample_n(sample_data_best_vars,400)) + 
+  aes(x = jitter(gincdif,1.5)) + 
+  geom_ribbon(aes(ymin = lower, ymax = upper), data = df_pred_post, 
+              alpha = 0.4, fill = "grey60") + 
+  geom_line(aes(y = median), data = df_pred_post, colour = "#3366FF", size = 1) + 
+  geom_point(aes(y = lrscale))
+# + scale_x_discrete(name ="Government SHould", limits=c(".2","1"), breaks=c("0.2","1"),labels=c("0.2" = "Strongly Agree", "1" = "Strongly Disagree"))
+```
+At the right end of the plot, some of the posterior predictions at the 95% 
+```{r}
+last_plot() + 
+  geom_hline(yintercept = 1, color = "grey50") + 
+  geom_label(x = 0, y = log10(24), label = "24 hours")
 ```
 
 ADD HERE: TWO LINES DEPENDING ON COUNTRY
@@ -90,8 +155,10 @@ for(i in subset){
 }
 abline(coef(fit_lm_1))
 ```
+
+
 ```{r, fig.height=5}
-ggplot(small_sample, aes(jitter(gincdif,1), jitter(lrscale,1))) +
+ggplot(sample_data, aes(jitter(gincdif,1), jitter(lrscale,1))) +
   geom_point() +
   geom_abline(intercept = coef(fit_lm_1)[1], slope = coef(fit_lm_1)[2]) +
   labs(x = "Government should reduce income differences", y = "Political Alignment")
@@ -114,51 +181,39 @@ fit_lm_3 <- stan_glm(lrscale ~ ., data=sample_data_best_vars)
 print(fit_lm_3)
 summary(fit_lm_3,digits=2)
 ```
+```{r pca on all variables}
+sample_data_pca <- prcomp(sample_data[,], center = TRUE,scale. = TRUE)
+summary(sample_data_pca)
+```
 
 ```{r}
+# posterior_predict (rstanarm)
 accuracy <- function(test_data, w) {
   correct = 0
   wrong = 0
-  for(n in seq(1:length(test_))) {
+  for(n in seq(1:length(test_data[,1]))) {
     cols = seq(2,length(w))
-    prediction[n] = (w[cols] %*% as.numeric(sample_data_best_vars[n,cols]) + w[1])
+    prediction[n] = (w[cols] %*% as.numeric(test_data[n,cols]) + w[1])
   }
-
+  
   for(n in seq(1,length(test_data[,1]))) {
-    if((prediction[n]<0.5 && smaller_sample$lrscale[n]<0.5) || (prediction[n]>0.5 && smaller_sample$lrscale[n]>0.5)) {
+    if((prediction[n]<0.5 && test_data$lrscale[n]<0.5) || (prediction[n]>0.5 && test_data$lrscale[n]>0.5)) {
       correct = correct + 1
+    }
+    else if((prediction[n]<0.5 && test_data$lrscale[n]>0.5) || (prediction[n]>0.5 && test_data$lrscale[n]<0.5)) {
+      wrong = wrong + 1
+    }
   }
-  else if((prediction[n]<0.5 && smaller_sample$lrscale[n]>0.5) || (prediction[n]>0.5 && smaller_sample$lrscale[n]<0.5)) {
-    wrong = wrong + 1
-  }
-  error = error + abs(prediction[n] - smaller_sample$lrscale[n])
-}
-}
-correct = 0
-wrong = 0
-error = 0
-prediction = seq(1,1000)
-w = fit_lm_3$coefficients
-
-for(n in seq(1:1000)) {
-  prediction[n] = (w[2:21] %*% as.numeric(smaller_sample[n,2:21]) + w[1])
+  print(correct)
+  print(wrong)
+  return(correct/(wrong+correct))
 }
 
-
-for(n in seq(1,1000)) {
-  if((prediction[n]<0.5 && smaller_sample$lrscale[n]<0.5) || (prediction[n]>0.5 && smaller_sample$lrscale[n]>0.5)) {
-    correct = correct + 1
-  }
-  else if((prediction[n]<0.5 && smaller_sample$lrscale[n]>0.5) || (prediction[n]>0.5 && smaller_sample$lrscale[n]<0.5)) {
-    wrong = wrong + 1
-  }
-  error = error + abs(prediction[n] - smaller_sample$lrscale[n])
-}
-print("Average Prediction Error: ")
-hist(ESSData$lrscale)
-error / 1000
-correct
-wrong
+print(accuracy(test_data_best_vars[,1:2], fit_lm_1$coefficients))
+print(accuracy(test_data_best_vars[,1:3], fit_lm_2$coefficients))
+print(accuracy(test_data_best_vars, fit_lm_3$coefficients))
+test_data_best_vars
+fit_lm_1$coefficients
 ```
 ```{r loo comparison}
 loo_1 <- loo(fit_lm_1)
