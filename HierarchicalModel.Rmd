@@ -52,14 +52,11 @@ test_data = data.frame(sample_data[test_rows,])
 ```
 
 ```{r correlation matrix}
-c = cor(data.frame(sample_data))
-lrscale_cor = c["lrscale",]
-best_variables = lrscale_cor[order(abs(lrscale_cor),decreasing=TRUE)][1:21]
-best_columns = order(abs(lrscale_cor),decreasing=TRUE)[1:21]
-sample_data_best_vars = sample_data[best_columns]
-sample_data_best_vars = cbind(country[sample_rows], sample_data_best_vars)
-colnames(sample_data_best_vars)[1] <- "country"
-best_variables
+best_5 = c(29,22,41,79,85)
+sample_data_best_5 = cbind(sample_data$lrscale,sample_data[,best_5])
+sample_data_best_5 = cbind(country[sample_rows],sample_data_best_5)
+colnames(sample_data_best_5)[1] = "country"
+colnames(sample_data_best_5)[2] = "lrscale"
 ```
 ## Pooled model
 The pooled model considers all data the same, thus not take into account the country each datapoint is from. It fits one linear model to predict the left-right scale, based on all input variables. 
@@ -74,7 +71,7 @@ print(fit_hier_1, digits=2)
 ```
 
 ```{r}
-fit_hier_2 <- stan_lmer(lrscale ~ 1 + gincdif + impcntr + dfincac + (1 + gincdif + impcntr + dfincac | country), data=sample_data_best_vars)
+fit_hier_2 <- stan_lmer(lrscale ~ 1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen + (1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen | country), data=sample_data_best_5)
 print(fit_hier_2, digits=2)
 ```
 
