@@ -5,7 +5,7 @@ date: "12/1/2019"
 output: html_document
 ---
   
-  ```{r setup, include=FALSE}
+```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(rstan)
 library(ggplot2)
@@ -14,11 +14,14 @@ library(rstanarm)
 library("bayesplot")
 library(projpred)
 library(dplyr)
+library(lme4)
 theme_set(bayesplot::theme_default(base_family = "sans"))
 SEED = 1234 
+options(mc.cores = parallel::detectCores())
 ```
 
-## Reading in the ESS Data
+## 1. Data
+Our data is from the European Social Survey conducted in 2016-2017. The data has more than 30,000 survey results across more than 500 variables in 21 countries. We first filtered the columns with non-spectrum (i.e. categorical) data and also filtered out columns that were country-specific or had a high number of non-answers. After filterning, we were left with nearly 22,000 observations across 105 variables.
 
 ```{r selecting data rows and variables}
 # N = 1000 # Number of sample points
@@ -48,14 +51,17 @@ training_data = data.frame(sample_data[-test_rows,])
 test_data = data.frame(sample_data[test_rows,])
 ```
 
+## 2. Variable Selection
+We used two methods for variable selection. The first method is a simple correlation. Figure 1 plots a correlation matrix for the 20 variables that correlate best with the "lrscale". The plot shows that all of these variables have slight positive or negative correlations with the outcome variable. This is decent selection method. \textit{However}, it fails to account for variables that are highly correlated with eachother. For example, we can see that the variables "imdfetn" ("Allow many/few immigrants of different race/ethnic group from majority") and "impcntr" ("Allow many/few immigrants from poorer countries outside Europe") are highly correlated, so they might carry redundant information for the model. That is why the next method, variable selection using a fitted linear model, is better.
 ```{r correlation matrix}
 c = cor(data.frame(sample_data))
 lrscale_corr = c["lrscale",]
 corr_best_variables = lrscale_corr[order(abs(lrscale_corr),decreasing=TRUE)][1:21]
 corr_best_columns = order(abs(lrscale_corr),decreasing=TRUE)[1:21]
 corr_best_variables = colnames(ESSData)[corr_best_columns[2:21]]
+corrplot(cor(data.frame(sample_data[corr_best_columns])))
 ```
-
+Instead of using the correlation matrix method for variable selection, we can fit a generalized linear model where the outcome follows all the 105 variables (excluding the country variable).
 ```{r}
 # Try proj pred instead
 t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
@@ -63,31 +69,50 @@ fit_lm_all <- stan_glm(lrscale ~ ., data=sample_data, prior = t_prior, prior_int
 print(fit_lm_all, digits=2)
 ```
 
+After fitting the model, we use the CRAN varsel() function, which uses cross-validation to pick the variables that contribute most to the model accuracy.
 ```{r}
 # Slow! Run once, save variable
 vs <- varsel(fit_lm_all, nv_max=40)
 varsel_plot(vs, stats=c('elpd', 'rmse'))
 saveRDS(vs, file = "variable_selection_40_tprior.rds")
-varsel_best_variables = colnames(ESSData)[vs$vind[1:20]]
+```
+The five most explanatory variables, according to the varSel function are:
+
+1) gincdif: "Government should reduce differences in income levels (Agree<-->Disagree)"
+2) dfincac: "Large differences in income acceptable to reward talents and efforts (Agree<-->Disagree)"
+3) impcntr: "Allow many/few immigrants from poorer countries outside Europe (Many<-->Few)"
+4) rlgblg: "Belonging to a particular religion or denomination (Yes/No)"
+5) sbsrnen: "Favour subsidize renewable energy to reduce climate change (Agree<-->Disagree)"
+
+They are all scale questions except for the binary religion variable.
+
+```{r}
+vs = readRDS(file = "variable_selection_40_tprior.rds")
+varsel_best_variables = colnames(ESSData)[vs$vind[1:5]]
 varsel_best_variables
-sample_data_best_5 = sample_data[,vs$vind[1:5]]
+sample_data_best_5 = cbind(sample_data$lrscale,sample_data[,vs$vind[1:5]])
 ```
 
 ```{r}
-# # TOO SLOW
-# cvs <- cv_varsel(fit_lm_all)
-# suggest_size(cvs)
-```
-```{r}
-varsel_plot(vs, stats = c('elpd', 'rmse'), deltas=T)
+# Hardcoded best variables
+best_5 = c(29,22,41,79,85)
+sample_data_best_5 = cbind(sample_data$lrscale,sample_data[,best_5])
+colnames(sample_data_best_5)[1] = "lrscale"
 ```
 
+## 3. Linear Model with One Predictor
+
+Now that we have selected the best variable to use for our models, we can fit a generalized linear model on the first predictor, "Government should reduce differences in income levels". 
 ```{r}
 # Try horseshoe prior
 t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
-fit_lm_1 <- stan_glm(lrscale ~ gincdif, data=sample_data_best_vars, prior = t_prior, prior_intercept = t_prior)
-print(fit_lm_1, digits=2)
+fit1 <- stan_glm(lrscale ~ gincdif, data=sample_data_best_5, prior = t_prior, prior_intercept = t_prior)
+print(fit1, digits=2)
 ```
+
+
+
+
 ```{r}
 tidy_predictions <- function(mat_pred, df_data, obs_name = "observation",
                              prob_lwr = .025, prob_upr = .975) {
@@ -127,7 +152,7 @@ df_pred_post
 ```
 
 ```{r}
-ggplot(sample_n(sample_data_best_vars,400)) + 
+ggplot(sample_n(sample_data_best_vars,300)) + 
   aes(x = jitter(gincdif,1.5)) + 
   geom_ribbon(aes(ymin = lower, ymax = upper), data = df_pred_post, 
               alpha = 0.4, fill = "grey60") + 
@@ -140,6 +165,32 @@ At the right end of the plot, some of the posterior predictions at the 95%
 last_plot() + 
   geom_hline(yintercept = 1, color = "grey50") + 
   geom_label(x = 0, y = log10(24), label = "24 hours")
+```
+
+```{r}
+sample_data_best_5 = cbind(country[sample_rows], sample_data_best_5)
+colnames(sample_data_best_5)[1] = "country"
+
+M1 <- lmer(formula = lrscale ~ 1 + gincdif + (1 | country), 
+           data = sample_data_best_5)
+
+# Complete-pooling regression
+
+pooled <- lm(formula = lrscale ~ gincdif,
+             data = sample_data_best_5)
+a_pooled <- coef(pooled)[1]   # complete-pooling intercept
+b_pooled <- coef(pooled)[2]   # complete-pooling slope
+
+# No-pooling regression
+J = 21 # Countries
+nopooled <- lm(formula = lrscale ~ 0 + country + gincdif,
+               data = sample_data_best_5)
+a_nopooled <- coef(nopooled)[1:J]   # 73 no-pooling intercepts              
+b_nopooled <- coef(nopooled)[J+1]
+
+# Partial pooling (multilevel) regression
+a_part_pooled <- coef(M2)$country[, 1]
+b_part_pooled <- coef(M2)$country[, 2]
 ```
 
 ADD HERE: TWO LINES DEPENDING ON COUNTRY
