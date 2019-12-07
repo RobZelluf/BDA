@@ -64,8 +64,24 @@ best_variables
 
 ```{r}
 t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
-fit_lm_1 <- stan_glmer(lrscale ~ gincdif | country[sample_rows], data=sample_data_best_vars, prior = t_prior, prior_intercept = t_prior)
+fit_lm_1 <- stan_glmer(lrscale ~ gincdif + dfincac | country[sample_rows], data=sample_data_best_vars, prior = t_prior, prior_intercept = t_prior)
 print(fit_lm_1, digits=2)
+```
+
+```{r, fig.height=5}
+polandRows = which(sample_data_best_vars$`country[sample_rows]`=="PL")
+ggplot(sample_data_best_vars[polandRows,], aes(jitter(gincdif,1), jitter(lrscale,1))) +
+  geom_point() +
+  geom_abline(intercept = coef(fit_lm_1)$'country[sample_rows]'[17,2], slope = coef(fit_lm_1)$'country[sample_rows]'[17,1] ) +
+  labs(x = "Government should reduce income differences", y = "Political Alignment")
+```
+
+```{r, fig.height=5}
+swedenRows = which(sample_data_best_vars$`country[sample_rows]`=="SE")
+ggplot(sample_data_best_vars[swedenRows,], aes(jitter(gincdif,1), jitter(lrscale,1))) +
+  geom_point() +
+  geom_abline(intercept = coef(fit_lm_1)$'country[sample_rows]'[20,2], slope = coef(fit_lm_1)$'country[sample_rows]'[20,1] ) +
+  labs(x = "Government should reduce income differences", y = "Political Alignment")
 ```
 
 ADD HERE: TWO LINES DEPENDING ON COUNTRY
