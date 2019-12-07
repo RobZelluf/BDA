@@ -50,19 +50,14 @@ test_data = data.frame(sample_data[test_rows,])
 
 ```{r correlation matrix}
 c = cor(data.frame(sample_data))
-lrscale_cor = c["lrscale",]
-best_variables = lrscale_cor[order(abs(lrscale_cor),decreasing=TRUE)][1:21]
-best_columns = order(abs(lrscale_cor),decreasing=TRUE)[1:21]
-sample_data_best_vars = sample_data[best_columns]
-training_data_best_vars = training_data[best_columns]
-test_data_best_vars = test_data[best_columns]
-best_variables
-# Look into finding better variables (projpred case studies for variable selection)
+lrscale_corr = c["lrscale",]
+corr_best_variables = lrscale_corr[order(abs(lrscale_corr),decreasing=TRUE)][1:21]
+corr_best_columns = order(abs(lrscale_corr),decreasing=TRUE)[1:21]
+corr_best_variables = colnames(ESSData)[corr_best_columns[2:21]]
 ```
 
 ```{r}
 # Try proj pred instead
-
 t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
 fit_lm_all <- stan_glm(lrscale ~ ., data=sample_data, prior = t_prior, prior_intercept = t_prior)
 print(fit_lm_all, digits=2)
@@ -73,6 +68,9 @@ print(fit_lm_all, digits=2)
 vs <- varsel(fit_lm_all, nv_max=40)
 varsel_plot(vs, stats=c('elpd', 'rmse'))
 saveRDS(vs, file = "variable_selection_40_tprior.rds")
+varsel_best_variables = colnames(ESSData)[vs$vind[1:20]]
+varsel_best_variables
+sample_data_best_5 = sample_data[,vs$vind[1:5]]
 ```
 
 ```{r}
