@@ -89,6 +89,15 @@ print(fit_hier_1, digits=2)
 fit_hier_2 <- stan_lmer(lrscale ~ 1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen + (1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen | country), data=sample_data_best_5)
 print(fit_hier_2, digits=2)
 ```
+## Interesting countries:
+Sweden: Really steep slopes for most variables
+Poland and Siberia: slope different sign than other countries for many variables
+Italy: Very large slope for impcntr
+EE: Max slope for rlgblg
+LT: Min slope for impcntr
+CZ: Min slope for sbsrnen
+
+
 
 
 ```
