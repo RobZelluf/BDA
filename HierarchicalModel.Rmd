@@ -96,12 +96,19 @@ The pooled model considers all data the same, thus not take into account the cou
 ## Partially pooled
 The previous model is pooled, assuming there is no differences between countries. The partially pooled model allows for differentation between countries. Each country will have it's own intecept and slope per variable, but these parameters are fitted to an overall distribution. This still allows the model to generalize over the entire dataset, while being able to fit a more narrow distribution on each country individually.
 
+## Pooled model
 ```{r cache=TRUE}
 # Try horseshoe prior
 t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
-fit1 <- stan_glm(lrscale ~ gincdif, data=sample_data_best_5, prior = t_prior, prior_intercept = t_prior)
+fit1 <- stan_glm(lrscale ~ gincdif + impcntr + dfincac + rlgblg + sbsrnen, data=sample_data_best_5, prior = t_prior, prior_intercept = t_prior)
 ```
 
+## Separate model
+```{r cache=TRUE}
+
+```
+
+## Hierarchical model
 ```{r cache=TRUE}
 fit_hier_2 <- stan_lmer(lrscale ~ 1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen + (1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen | country), data=sample_data_best_5, iter=200)
 print(fit_hier_2, digits=2)
