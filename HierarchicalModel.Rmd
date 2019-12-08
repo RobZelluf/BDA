@@ -19,6 +19,22 @@ options(mc.cores = parallel::detectCores())
 
 ## Reading in the ESS Data
 
+## Data filtering
+The ESS dataset is very large, with a lot of different types of values and country-specific questions. So before running our models, we cleaned our data. Cleaning the data consists of the following steps:
+
+Remove country-specific data:
+- We want all variables to be available for all countries, so we remove country-specific data.
+
+Remove nominal data:
+- The dataset has a lot of questions that are nominal (things like job-type, political party voted for). These are filtered out, because they cannot be put on a scale.
+
+Remove sparse questions:
+- We remove the questions that have more tan 10% invalid answers (e.g. not answered, no preference, etc..). This is mainly done so that in a later stage of filtering, these questions don't cause the filtering of too many datapoints.
+
+Change scales:
+- The questions come in a lot of different scales, like 1-10, 1-5, 1-4 but also yes-no questions. These questions are all scaled to the 1-1- scale. For most scales this is done using a simple transformation, the yes-no questions are mapped to the values 7 and 3.
+
+
 ```{r selecting data rows and variables}
 # N = 1000 # Number of sample points
 
@@ -52,26 +68,36 @@ test_data = data.frame(sample_data[test_rows,])
 ```
 
 ```{r correlation matrix}
-c = cor(data.frame(sample_data))
-lrscale_cor = c["lrscale",]
-best_variables = lrscale_cor[order(abs(lrscale_cor),decreasing=TRUE)][1:21]
-best_columns = order(abs(lrscale_cor),decreasing=TRUE)[1:21]
-sample_data_best_vars = sample_data[best_columns]
-sample_data_best_vars = cbind(country[sample_rows], sample_data_best_vars)
-colnames(sample_data_best_vars)[1] <- "country"
-best_variables
+best_5 = c(29,22,41,79,85)
+sample_data_best_5 = cbind(sample_data$lrscale,sample_data[,best_5])
+sample_data_best_5 = cbind(country[sample_rows],sample_data_best_5)
+colnames(sample_data_best_5)[1] = "country"
+colnames(sample_data_best_5)[2] = "lrscale"
 ```
 ## Pooled model
 The pooled model considers all data the same, thus not take into account the country each datapoint is from. It fits one linear model to predict the left-right scale, based on all input variables. 
-
 
 ## Partially pooled
 The previous model is pooled, assuming there is no differences between countries. The partially pooled model allows for differentation between countries. Each country will have it's own intecept and slope per variable, but these parameters are fitted to an overall distribution. This still allows the model to generalize over the entire dataset, while being able to fit a more narrow distribution on each country individually.
 
 ```{r}
-fit_hier_1 <- stan_lmer(lrscale ~ 1 + gincdif + impcntr + (1 + gincdif + impcntr | country), data=sample_data_best_vars, iter=200)
+fit_hier_1 <- stan_lmer(lrscale ~ 1 + gincdif + impcntr + (1 + gincdif + impcntr | country), data=sample_data_best_vars)
 print(fit_hier_1, digits=2)
 ```
+
+```{r}
+fit_hier_2 <- stan_lmer(lrscale ~ 1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen + (1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen | country), data=sample_data_best_5)
+print(fit_hier_2, digits=2)
+```
+## Interesting countries:
+Sweden: Really steep slopes for most variables
+Poland and Siberia: slope different sign than other countries for many variables
+Italy: Very large slope for impcntr
+EE: Max slope for rlgblg
+LT: Min slope for impcntr
+CZ: Min slope for sbsrnen
+
+
 
 
 ```
