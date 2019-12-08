@@ -351,7 +351,6 @@ dim(pred_post)
 
 df_pred_post <- tidy_predictions(pred_post, new_data)
 df_pred_post
-
 ```
 
 ```{r posterior prediction plot pooled 2}
@@ -374,24 +373,30 @@ last_plot() +
 ```{r posterior prediction plot partially pooled}
 g_rng <- range(sample_data_best_5$gincdif) 
 g_steps <- seq(g_rng[1], g_rng[2], length.out = 80)
-new_data <- data.frame(
-  observation = seq_along(g_steps), 
-  country = "FI"
-  gincdif = g_steps)
-pred_post <- posterior_predict(fit_hier_2, newdata = new_data)
-dim(pred_post)
 
-df_pred_post <- tidy_predictions(pred_post, new_data)
-df_pred_post
+new_data_fi <- data.frame(
+  observation = seq_along(g_steps), 
+  country = "FI",
+  gincdif = g_steps,
+  impcntr = g_steps,
+  dfincac = g_steps,
+  rlgblg = g_steps,
+  sbsrnen = g_steps
+  )
+pred_post_fi <- posterior_predict(fit_hier_2, newdata = new_data_fi)
+dim(pred_post_fi)
+
+df_pred_post_fi <- tidy_predictions(pred_post_fi, new_data)
+df_pred_post_fi
 
 ```
 
 ```{r posterior prediction plot partially pooled 2}
 ggplot(sample_n(sample_data_best_5,300)) + 
   aes(x = jitter(gincdif,1.5)) + 
-  geom_ribbon(aes(ymin = lower, ymax = upper), data = df_pred_post, 
+  geom_ribbon(aes(ymin = lower, ymax = upper), data = df_pred_post_fi, 
               alpha = 0.4, fill = "grey60") + 
-  geom_line(aes(y = median), data = df_pred_post, colour = "#3366FF", size = 1) + 
+  geom_line(aes(y = median), data = df_pred_post_fi, colour = "#3366FF", size = 1) + 
   geom_point(aes(y = lrscale))
 # + scale_x_discrete(name ="Government SHould", limits=c(".2","1"), breaks=c("0.2","1"),labels=c("0.2" = "Strongly Agree", "1" = "Strongly Disagree"))
 ```
