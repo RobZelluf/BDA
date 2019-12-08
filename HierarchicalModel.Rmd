@@ -80,14 +80,19 @@ The pooled model considers all data the same, thus not take into account the cou
 ## Partially pooled
 The previous model is pooled, assuming there is no differences between countries. The partially pooled model allows for differentation between countries. Each country will have it's own intecept and slope per variable, but these parameters are fitted to an overall distribution. This still allows the model to generalize over the entire dataset, while being able to fit a more narrow distribution on each country individually.
 
-```{r}
-fit_hier_1 <- stan_lmer(lrscale ~ 1 + gincdif + impcntr + (1 + gincdif + impcntr | country), data=sample_data_best_vars)
-print(fit_hier_1, digits=2)
+```{r cache=TRUE}
+# Try horseshoe prior
+t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
+fit1 <- stan_glm(lrscale ~ gincdif, data=sample_data_best_5, prior = t_prior, prior_intercept = t_prior)
+```
+
+```{r cache=TRUE}
+fit_hier_2 <- stan_lmer(lrscale ~ 1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen + (1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen | country), data=sample_data_best_5, iter=200)
+print(fit_hier_2, digits=2)
 ```
 
 ```{r}
-fit_hier_2 <- stan_lmer(lrscale ~ 1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen + (1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen | country), data=sample_data_best_5)
-print(fit_hier_2, digits=2)
+coefficients <- coef(fit_hier_2)[1]
 ```
 ## Interesting countries:
 Sweden: Really steep slopes for most variables
@@ -96,6 +101,65 @@ Italy: Very large slope for impcntr
 EE: Max slope for rlgblg
 LT: Min slope for impcntr
 CZ: Min slope for sbsrnen
+
+```{r}
+
+# (0) Set axes & choose schools
+y <- sample_data_best_5$lrscale
+x <- sample_data_best_5$gincdif
+countryid <- sample_data_best_5$country
+sel.cntry <- c("SE",
+             "PL",
+             "SI",
+             "IT",
+             "EE",
+             "LT",
+             "CZ",
+             "FI",
+             "NL")
+
+# (1) Subset 8 of the schools; generate data frame
+df <- data.frame(y, x, countryid)
+df8 <- subset(df, countryid %in% sel.cntry)
+
+# (2) Assign complete-pooling, no-pooling, partial pooling estimates
+a_pooled <- coef(fit1)[1]
+b_pooled <- coef(fit1)[2]
+
+a_part_pooled <- coef(fit_hier_2)$country[, 1]
+b_part_pooled <- coef(fit_hier_2)$country[, 2]
+
+df8$a_pooled <- a_pooled 
+df8$b_pooled <- b_pooled
+
+df8$a_part_pooled <- a_part_pooled[df8$countryid]
+df8$b_part_pooled <- b_part_pooled[df8$countryid]
+
+ggplot(data = df8, 
+       aes(x = x, y = y)) + 
+  facet_wrap(facets = ~ countryid, 
+             ncol = 4) + 
+  theme_bw() +
+  geom_jitter(position = position_jitter(width = .05, 
+                                         height = 0.02)) +
+  geom_abline(aes(intercept = a_part_pooled, 
+                  slope = b_part_pooled), 
+              linetype = "solid", 
+              color = "blue", 
+              size = 0.5) +
+  
+  geom_abline(aes(intercept = a_pooled, 
+                slope = b_pooled), 
+            linetype = "solid", 
+            color = "red", 
+            size = 0.5) +
+  
+  scale_x_continuous(breaks = c(0, 1)) + 
+  labs(title = "Complete-pooling, No-pooling, and Partial pooling estimates",
+       x = "", 
+       y = "Total score on coursework paper")+theme_bw( base_family = "serif")
+
+```
 
 
 
