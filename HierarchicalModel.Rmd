@@ -259,21 +259,13 @@ EE: Max slope for rlgblg
 LT: Min slope for impcntr
 CZ: Min slope for sbsrnen
 
-```{r}
+```{r, fig.height=12, fig.width=12}
 
 # (0) Set axes & choose schools
 y <- sample_data_best_5$lrscale
 x <- sample_data_best_5$gincdif
 countryid <- sample_data_best_5$country
-sel.cntry <- c("SE",
-             "PL",
-             "SI",
-             "IT",
-             "EE",
-             "LT",
-             "CZ",
-             "FI",
-             "NL")
+sel.cntry <- unique(country)
 
 # (1) Subset 8 of the schools; generate data frame
 df <- data.frame(y, x, countryid)
@@ -283,19 +275,25 @@ df8 <- subset(df, countryid %in% sel.cntry)
 a_pooled <- coef(fit_lm_1)[1]
 b_pooled <- coef(fit_lm_1)[2]
 
+a_nopooled <- coef(nopooled)$country[,1]
+b_nopooled <- coef(nopooled)$country[,2]
+
 a_part_pooled <- coef(fit_hier_2)$country[, 1]
 b_part_pooled <- coef(fit_hier_2)$country[, 2]
 
 df8$a_pooled <- a_pooled 
 df8$b_pooled <- b_pooled
 
+df8$a_nopooled <- a_nopooled[df8$countryid]
+df8$b_nopooled <- b_nopooled[df8$countryid]
+
 df8$a_part_pooled <- a_part_pooled[df8$countryid]
 df8$b_part_pooled <- b_part_pooled[df8$countryid]
 
-ggplot(data = df8, 
+ggplot(data = df8,
        aes(x = x, y = y)) + 
   facet_wrap(facets = ~ countryid, 
-             ncol = 4) + 
+             ncol = 3) + 
   theme_bw() +
   geom_jitter(position = position_jitter(width = .05, 
                                          height = 0.02)) +
@@ -310,6 +308,12 @@ ggplot(data = df8,
             linetype = "solid", 
             color = "red", 
             size = 0.5) +
+
+  geom_abline(aes(intercept = a_nopooled, 
+              slope = b_nopooled), 
+          linetype = "solid", 
+          color = "green", 
+          size = 0.5) +
   
   scale_x_continuous(breaks = c(0, 1)) + 
   labs(title = "Complete-pooling, No-pooling, and Partial pooling estimates",
@@ -317,7 +321,6 @@ ggplot(data = df8,
        y = "Total score on coursework paper")+theme_bw( base_family = "serif")
 
 ```
-
 
 ## Validation and Leave-One-Out Analysis
 
