@@ -25,7 +25,7 @@ library(lme4)
 theme_set(bayesplot::theme_default(base_family = "sans"))
 SEED = 1234 
 options(mc.cores = parallel::detectCores())
-ITER = 200
+ITER = 2000
 ```
 
 ## 0. Introduction
@@ -60,7 +60,7 @@ drops = c("cntry","yrbrn")
 ESSData = ESSData[,!(names(ESSData) %in% drops)] / 10
 ESSData = data.frame(age,ESSData)
 
-SAMPLESIZE = 5000
+SAMPLESIZE = 20000
 
 sample_rows = sample(seq(1,M),SAMPLESIZE)
 test_rows = sample(seq(1,SAMPLESIZE),1000)
@@ -175,7 +175,7 @@ mean(rhat(nopooled))
 
 Here are the slope and intercept parameters for each country for the non-pooled model.
 ```{r coefficients for nonpooled}
-coef(nopooled)$country
+coef(nopooled)
 ```
 
 ### Hierarchical model
@@ -303,11 +303,16 @@ loo_compare(loo_hier, loo_5)
 Now that we have selected the best variable to use for our models, we can fit a generalized linear model on the first predictor, "Government should reduce differences in income levels" and compare that with the five-variable and all-variable simple linear models.
 
 Here is a simple, best-fit line for the pooled model on the first predictor. This is not a great method of checking, because it does not preserve any of the Bayesian uncertainty.
-```{r, fig.height=5}
-ggplot(sample_data_best_5, aes(jitter(gincdif,1), jitter(lrscale,1))) +
-  geom_point() +
-  geom_abline(intercept = coef(fit_lm_1)[1], slope = coef(fit_lm_1)[2]) +
-  labs(x = "Government should reduce income differences", y = "Political Alignment")
+```{r, fig.height=3}
+sims <- as.matrix(fit_lm_1)
+n_sims <- nrow(sims)
+subset <- sample(n_sims, 1000)
+plot(jitter(sample_data_best_5$gincdif,1), jitter(sample_data_best_5$lrscale,1), xlab="Government should reduce income differences", ylab="Political Alignment")
+for(i in subset){
+  abline(sims[i,1], sims[i,2], col="gray")
+}
+abline(coef(fit_lm_1))
+```
 ```
 
 
