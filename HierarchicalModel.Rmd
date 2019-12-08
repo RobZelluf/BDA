@@ -313,7 +313,7 @@ for(i in subset){
 }
 abline(coef(fit_lm_1))
 ```
-```
+
 
 
 ```{r echo=FALSE}
