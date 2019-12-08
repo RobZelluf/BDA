@@ -83,11 +83,14 @@ corrplot(cor(data.frame(sample_data[corr_best_columns])))
 
 Instead of using the correlation matrix method for variable selection, we can fit a generalized linear model where the outcome follows all the 105 variables (excluding the country variable).
 
+### Note about Stan
+We used rstanarm for our stan implementations. Rstanarm has prebuilt models that take a very flexible statistical formula parameter. We use the stan_lm, stan_glm and stan_lmer functions. We used a gaussian error term for all functions, so the lm and glm functions are similar. The major difference is that the stan_lmer function allows for interactions between parameters, i.e. it can implement partially pooled (hierarchical) models. We did write stan models, similar to the hierarchical model used in Exercise 7, but ended up using the rstanarm implementation for our final report.
+
 ### Note about Priors
 
 For all models in this report, we use a weakly informative student-t prior. We choose student-t because it has fatter tails than the gaussian distribution, reflecting the greater frequency of extreme political beliefs.
 
-```{r cache=TRUE, results=FALSE}
+```{r linear model for varsel, cache=TRUE, results=FALSE}
 t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
 fit_lm_all <- stan_glm(lrscale ~ ., data=sample_data, prior = t_prior, prior_intercept = t_prior)
 summary(fit_lm_all, digits=2)
