@@ -132,6 +132,8 @@ Now that we have selected the best variable to use for our models, we can fit a 
 t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
 fit_lm_1 <- stan_glm(lrscale ~ gincdif, data=sample_data_best_5, prior = t_prior, prior_intercept = t_prior)
 ```
+Below is a summary of the simple linear five-predictor model. Note that all rhat values are 1.0, indicating good convergence and independence of of the MCMC
+
 ```{r}
 summary(fit_lm_5)
 ```
@@ -249,13 +251,21 @@ ggplot(sample_data_best_5, aes(jitter(gincdif,1), jitter(lrscale,1))) +
 # summary(fit_lm_2,digits=2)
 ```
 
+Below, we can see the loo output for the best 5 variable simple linear model. All k values are less than 0.5, so the loo output has good convergence. The p_loo value is 7.7, which is quite high for a ten parameter model (11 parameters including the bias term).
 
 ```{r loo comparison, cache=TRUE}
 loo_1 <- loo(fit_lm_1)
 loo_5 <- loo(fit_lm_5)
 loo_all <- loo(fit_lm_all)
-loo_compare(loo_1, loo_5)
-loo_compare(loo_5, loo_all)
+loo_5
+```
+Loo_compare() also shows a clear preference for the five-variable model over the one-variable model. The elpd difference is 174.2 between the two models, with a standard error of only 19.9, so the preference is highly significant.
+```{r}
+loo_compare(loo_5, loo_1)
+```
+
+
+```{r loo output}
 loo_5
 ```
 
