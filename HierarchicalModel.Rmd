@@ -25,6 +25,7 @@ library(lme4)
 theme_set(bayesplot::theme_default(base_family = "sans"))
 SEED = 1234 
 options(mc.cores = parallel::detectCores())
+ITER = 200
 ```
 
 ## 0. Introduction
@@ -85,13 +86,13 @@ Instead of using the correlation matrix method for variable selection, we can fi
 
 ```{r linear model for varsel, cache=TRUE, results=FALSE}
 t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
-fit_lm_all <- stan_glm(lrscale ~ ., data=sample_data, prior = t_prior, prior_intercept = t_prior)
+fit_lm_all <- stan_glm(lrscale ~ ., data=sample_data, prior = t_prior, prior_intercept = t_prior, iter = ITER)
 summary(fit_lm_all, digits=2)
 ```
 
 After fitting the model, we use the CRAN varsel() function, which uses cross-validation to pick the variables that contribute most to the model accuracy.
 
-```{r varsel, cache=TRUE}
+```{r varsel, eval=TRUE, cache=TRUE}
 # Slow! Run once, save variable
 vs <- varsel(fit_lm_all, nv_max=40)
 saveRDS(vs, file = "variable_selection_40_tprior.rds")
@@ -126,7 +127,7 @@ colnames(sample_data_best_5)[1] = "lrscale"
 The following plot shows the 95% distribution of posterior draws for the linear weights for each of these five variables and the bias term. Each distribution sits clearly on the positive or negative side of 0, indicating confident predictive value.
 
 ```{r five variable linear model, cache=TRUE}
-fit_lm_5 = stan_glm(lrscale ~ ., data=sample_data_best_5, prior = t_prior, prior_intercept = t_prior)
+fit_lm_5 = stan_glm(lrscale ~ ., data=sample_data_best_5, prior = t_prior, prior_intercept = t_prior, iter = ITER)
 ```
 
 ```{r variable correlation plot}
@@ -157,9 +158,9 @@ The seperate model simply fits a different five-predictor linear model for each 
 sample_data_best_5 = cbind(country[sample_rows],sample_data_best_5)
 colnames(sample_data_best_5)[1] = "country"
 
-nopooled <- stan_lmer(formula = lrscale ~ 0 + (1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen | country),
-               data = sample_data_best_5)
+nopooled <- stan_lmer(formula = lrscale ~ 0 + (1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen | country), data = sample_data_best_5, iter = ITER)
 ```
+
 ```{r}
 summary(nopooled)
 ```
@@ -173,7 +174,7 @@ coef(nopooled)
 The previous model is pooled, assuming there is no differences between countries. The partially pooled model allows for differentation between countries. Each country will have it's own intecept and slope per variable, but these parameters are fitted to an overall distribution. This still allows the model to generalize over the entire dataset, while being able to fit a more narrow distribution on each country individually.
 
 ```{r hierarchical model, cache=TRUE, results=FALSE}
-fit_hier_2 <- stan_lmer(lrscale ~ 1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen + (1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen | country), data=sample_data_best_5)
+fit_hier_2 <- stan_lmer(lrscale ~ 1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen + (1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen | country), data=sample_data_best_5, iter=ITER)
 ```
 
 ```{r summary of hierarchical}
