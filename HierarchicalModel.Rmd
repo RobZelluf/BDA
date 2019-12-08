@@ -99,7 +99,7 @@ summary(fit_lm_all, digits=2)
 
 After fitting the model, we use the CRAN varsel() function, which uses cross-validation to pick the variables that contribute most to the model accuracy.
 
-```{r varsel, eval=FALSE, cache=TRUE}
+```{r varsel, eval=TRUE, cache=TRUE}
 # Slow! Run once, save variable
 vs <- varsel(fit_lm_all, nv_max=40)
 saveRDS(vs, file = "variable_selection_40_tprior.rds")
