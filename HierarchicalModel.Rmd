@@ -1,5 +1,5 @@
 ---
-title: "Simple Models"
+title: "Political Alignment in the 2016 European Social Survey"
 author: "Daniel Hopkins & Rob Verbeek"
 date: "8/12/2019"
 output:
@@ -34,20 +34,20 @@ We explore what variables predict political affiliation in European countries, a
 ## 1. Data
 Our data is from the European Social Survey conducted in 2016-2017. The data has more than 30,000 survey results across more than 500 variables in 21 countries. We first filtered the columns with non-spectrum (i.e. categorical) data and also filtered out columns that were country-specific or had a high number of non-answers. After filterning, we were left with nearly 22,000 observations across 105 variables.
 
-### Data filtering
-The ESS dataset is very large, with a lot of different types of values and country-specific questions. So before running our models, we cleaned our data. Cleaning the data consists of the following steps:
+### Data filtering details
+The ESS dataset is very large, with a lot of different types of values and country-specific questions. So before running our models, we cleaned our data. The python code is not show here for space reasons. Cleaning the data consists of the following steps:
 
-Remove country-specific data:
-- We want all variables to be available for all countries, so we remove country-specific data.
+\textit{Remove country-specific data:}\\
+We want all variables to be available for all countries, so we remove country-specific data.
 
-Remove nominal data:
-- The dataset has a lot of questions that are nominal (things like job-type, political party voted for). These are filtered out, because they cannot be put on a scale.
+\textit{Remove nominal data:}\\
+The dataset has a lot of questions that are nominal (things like job-type, political party voted for). These are filtered out, because they cannot be put on a scale.
 
-Remove sparse questions:
-- We remove the questions that have more tan 10% invalid answers (e.g. not answered, no preference, etc..). This is mainly done so that in a later stage of filtering, these questions don't cause the filtering of too many datapoints.
+\textit{Remove sparse questions:}\\
+We remove the questions that have more tan 10% invalid answers (e.g. not answered, no preference, etc..). This is mainly done so that in a later stage of filtering, these questions don't cause the filtering of too many datapoints.
 
-Change scales:
-- The questions come in a lot of different scales, like 1-10, 1-5, 1-4 but also yes-no questions. These questions are all scaled to the 1-1- scale. For most scales this is done using a simple transformation, the yes-no questions are mapped to the values 7 and 3.
+\textit{Change scales:}\\
+The questions come in a lot of different scales, like 1-10, 1-5, 1-4 but also yes-no questions. These questions are all scaled to the 1-1- scale. For most scales this is done using a simple transformation, the yes-no questions are mapped to the values 7 and 3.
 
 ```{r selecting data rows and variables}
 ESSData <- read.csv(file="data/filtered_data2.csv", header=TRUE, sep=",")
@@ -71,7 +71,7 @@ test_data = data.frame(sample_data[test_rows,])
 ```
 
 ## 2. Variable Selection
-We used two methods for variable selection. The first method is a simple correlation. Figure 1 plots a correlation matrix for the 20 variables that correlate best with the "lrscale". The plot shows that all of these variables have slight positive or negative correlations with the outcome variable. This is decent selection method. \textit{However}, it fails to account for variables that are highly correlated with eachother. For example, we can see that the variables "imdfetn" ("Allow many/few immigrants of different race/ethnic group from majority") and "impcntr" ("Allow many/few immigrants from poorer countries outside Europe") are highly correlated, so they might carry redundant information for the model. That is why the next method, variable selection using a fitted linear model and the varsel() function, is better.
+We used two methods for variable selection. The first method is a simple correlation. Figure 1 plots a correlation matrix for the 20 variables that correlate best with the "lrscale". The plot shows that all of these variables have slight positive or negative correlations with the outcome variable.
 
 ```{r correlation matrix}
 c = cor(data.frame(sample_data))
@@ -82,9 +82,9 @@ corr_best_variables = colnames(ESSData)[corr_best_columns[2:21]]
 corrplot(cor(data.frame(sample_data[corr_best_columns])))
 ```
 
-Instead of using the correlation matrix method for variable selection, we can fit a generalized linear model where the outcome follows all the 105 variables (excluding the country variable).
+This is an ok selection method. \textit{However}, it fails to account for variables that are highly correlated with eachother. For example, we can see that the variables "imdfetn" ("Allow many/few immigrants of different race/ethnic group from majority") and "impcntr" ("Allow many/few immigrants from poorer countries outside Europe") are highly correlated, so they might carry redundant information for the model. That is why the next method, variable selection using a fitted linear model and the varsel() function, is better.Instead of using the correlation matrix method for variable selection, we can fit a generalized linear model where the outcome follows all the 105 variables (excluding the country variable).
 
-```{r linear model for varsel, cache=TRUE, results=FALSE}
+```{r linear model for varsel, cache=TRUE, results=FALSE, warning=FALSE}
 t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
 fit_lm_all <- stan_glm(lrscale ~ ., data=sample_data, prior = t_prior, prior_intercept = t_prior, iter = ITER)
 summary(fit_lm_all, digits=2)
@@ -92,8 +92,7 @@ summary(fit_lm_all, digits=2)
 
 After fitting the model, we use the CRAN varsel() function, which uses cross-validation to pick the variables that contribute most to the model accuracy.
 
-```{r varsel, eval=FALSE, cache=TRUE}
-# Slow! Run once, save variable
+```{r varsel, eval=FALSE, cache=TRUE, warning=FALSE}
 vs <- varsel(fit_lm_all, nv_max=40)
 saveRDS(vs, file = "variable_selection_40_tprior.rds")
 ```
@@ -107,7 +106,7 @@ The five most explanatory variables, according to the varSel function are:
 
 They are all scale questions except for the binary religion variable.
 
-You can also see the plot, which shows the improved explanatory power of each additional variable. In this case, since the data is complex, the added power is not very great, but the model shows clear improvement across the first five variables, which slows after the fifth variable.
+You can also see the plot, which shows the improved explanatory power of each additional variable. In this case, since the data is complex, the added power is not very great, but the model shows clear improvement across the first five variables, which slows after the fifth variable. The lower line shows decreasing error and the upper line shows an increasing elpd log-probability of the data.
 
 ```{r varsel plot, cache=TRUE}
 vs = readRDS(file = "variable_selection_40_tprior.rds")
@@ -132,15 +131,16 @@ fit_lm_5 = stan_glm(lrscale ~ ., data=sample_data_best_5, prior = t_prior, prior
 
 ```{r variable correlation plot}
 pplot<-plot(fit_lm_5, "areas", prob = 0.95, prob_outer = 1)
-pplot+ geom_vline(xintercept = 0)
+pplot+ geom_vline(xintercept = 0) + labs(title="Posterior draws for five best predictors of lrscale",
+        x ="Coefficient", y = "Predictor")
 ```
 
 ## 3. Models
 
-### Note about Stan
+##### Note about Stan
 We used rstanarm for our stan implementations. Rstanarm has prebuilt models that take a very flexible statistical formula parameter. We use the stan_lm, stan_glm and stan_lmer functions. We used a gaussian error term for all functions, so the lm and glm functions are similar. The major difference is that the stan_lmer function allows for interactions between parameters, i.e. it can implement partially pooled (hierarchical) models. We did write stan models, similar to the hierarchical model used in Exercise 7, but ended up using the rstanarm implementation for our final report.
 
-### Note about Priors
+##### Note about Priors
 For all models in this report, we use a weakly informative student-t prior. We choose student-t because it has fatter tails than the gaussian distribution, reflecting the greater frequency of extreme political beliefs.
 
 ### Pooled model
@@ -149,60 +149,63 @@ The pooled model considers all data the same, thus not take into account the cou
 Below is a summary of the simple linear five-predictor pooled model fitted above.
 
 ```{r}
-summary(fit_lm_5)
+summary(fit_lm_5, digits=2)
 ```
 
 ### One-predictor pooled model
 We also fit a one-predictor pooled model for the sake of loo comparison.
-```{r one predictor model, cache=TRUE, results=FALSE} 
+```{r one predictor model, cache=TRUE, results=FALSE, warning=FALSE} 
 t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
 fit_lm_1 <- stan_glm(lrscale ~ gincdif, data=sample_data_best_5, prior = t_prior, prior_intercept = t_prior)
 ```
 
 ### Separate model
 The seperate model simply fits a different five-predictor linear model for each of the 21 countries. We generate this model for contrast in the plot that follows.
-```{r seperate models, cache=TRUE, results=FALSE}
+```{r seperate models, cache=TRUE, results=FALSE, warning=FALSE}
 sample_data_best_5 = cbind(country[sample_rows],sample_data_best_5)
 colnames(sample_data_best_5)[1] = "country"
 
 nopooled <- stan_lmer(formula = lrscale ~ 0 + (1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen | country), data = sample_data_best_5, iter = ITER)
 ```
 
+This model has six parameters for each country (five slopes and an intercept), so there are 126 r-hat values. Instead of printing all of these, following is the mean of the r-hat values, which is very close to 1.
 ```{r}
-summary(nopooled)
+mean(rhat(nopooled))
 ```
 
 Here are the slope and intercept parameters for each country for the non-pooled model.
 ```{r coefficients for nonpooled}
-coef(nopooled)
+coef(nopooled)$country
 ```
 
 ### Hierarchical model
 The previous model is pooled, assuming there is no differences between countries. The partially pooled model allows for differentation between countries. Each country will have it's own intecept and slope per variable, but these parameters are fitted to an overall distribution. This still allows the model to generalize over the entire dataset, while being able to fit a more narrow distribution on each country individually.
 
-```{r hierarchical model, cache=TRUE, results=FALSE}
+```{r hierarchical model, cache=TRUE, results=FALSE, warning=FALSE}
 fit_hier_2 <- stan_lmer(lrscale ~ 1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen + (1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen | country), data=sample_data_best_5, iter=ITER)
 ```
 
+We apologize to the reader, the following summary has many coefficients, but we want to show the r-hat and n_eff values for this final model.
 ```{r summary of hierarchical}
 summary(fit_hier_2, digits=2)
 ```
 
-Following are the slope and intercept parameters for each country in the hierarchical model. Note that they generally agree at least about the direction of the correlation, except in a few interesting cases.
+Following are the slope and intercept parameters for each country in the hierarchical model, displayed more concisely. Note that they generally agree at least about the direction of the correlation, except in a few interesting cases.
 ```{r}
 coefficients <- coef(fit_hier_2)[1]
+coefficients
 ```
 
-### Effective Sample Size
-As we can see in the summary for each of the three models, the effective sample size for each parameter is at least 3000, which is plenty!
+##### Effective Sample Size
+As we can see in the summary for each of the three models (displayed only for the hierarchical model), the effective sample size for each parameter is at least 3000, which is plenty!
 
-### Rhat convergence
+##### Rhat convergence
 All of the models also have r hat values of 1.0, so the HMC chains were both convergent and independent. 
 
-### HMC-Specific diagnostics
+##### HMC-Specific diagnostics
 We received no warnings about tree depth or divergences. Therefore, we assume that the HMC chains ran properly and never exceeded the default maximum tree depth (10). Nor did we get any divergent transitions, so there was no need to adjust the default adapt_delta parameter (0.8). 
 
-### Interesting anomalies:
+##### Interesting anomalies:
 Sweden: Has steep slopes for most variables, possibly indicating greater political polarization along these variables.
 Poland and Slovenia: slope different sign than other countries for many variables, indicating that "left" and "right" carry different connotations in these countries.
 Italy: Very large slope for impcntr, possibly indicating that immigration is a very divisive topic in Italy right now.
@@ -276,7 +279,7 @@ ggplot(data = df8,
 ```
 
 ## 5. Validation and Leave-One-Out Analysis
-Below, we can see the loo output for the best 5 variable simple linear model. All k values are less than 0.5, so the loo output has good convergence. The p_loo value is 7.7, which is quite high for a ten parameter model (11 parameters including the bias term).
+Below, we can see the loo output for the best 5 variable simple linear model. All k values are less than 0.5, so the loo output has good convergence. The p_loo value is about 8, which is quite high for a ten parameter model (11 parameters including the bias term).
 
 ```{r loo comparison, cache=TRUE}
 loo_1 <- loo(fit_lm_1)
@@ -285,28 +288,21 @@ loo_all <- loo(fit_lm_all)
 loo_hier <- loo(fit_hier_2)
 loo_5
 ```
-Loo_compare() also shows a clear preference for the five-variable model over the one-variable model. The elpd difference is 174.2 between the two models, with a standard error of only 19.9, so the preference is highly significant.
+Loo_compare() also shows a clear preference for the five-variable model over the one-variable model. The elpd difference is about 175 between the two models, with a standard error of only 20, so the preference is highly significant.
 ```{r}
 loo_compare(loo_5, loo_1)
 ```
 
+The following result is interesting. The hierarchical model is only slightly favored over the five-predictor model. However, the hierarchical model preserves country-specific information, so it is preferred for analysis.
 ```{r}
 loo_compare(loo_hier, loo_5)
-```
-
-```{r loo output}
-loo_5
 ```
 
 ## 6. Posterior Predictive Checking
 
 Now that we have selected the best variable to use for our models, we can fit a generalized linear model on the first predictor, "Government should reduce differences in income levels" and compare that with the five-variable and all-variable simple linear models.
 
-```{r}
-summary(fit_lm_1, digits=2)
-```
-
-Best fit line
+Here is a simple, best-fit line for the pooled model on the first predictor. This is not a great method of checking, because it does not preserve any of the Bayesian uncertainty.
 ```{r, fig.height=5}
 ggplot(sample_data_best_5, aes(jitter(gincdif,1), jitter(lrscale,1))) +
   geom_point() +
@@ -340,7 +336,8 @@ tidy_predictions <- function(mat_pred, df_data, obs_name = "observation",
 }
 ```
 
-```{r posterior prediction plot pooled }
+Instead we use the rstanarm posterior_predict function, which generates new data to be compared to the original data.
+```{r posterior prediction plot pooled, warning=FALSE }
 g_rng <- range(sample_data_best_5$gincdif) 
 g_steps <- seq(g_rng[1], g_rng[2], length.out = 80)
 new_data <- data.frame(
@@ -350,17 +347,17 @@ pred_post <- posterior_predict(fit_lm_1, newdata = new_data)
 dim(pred_post)
 
 df_pred_post <- tidy_predictions(pred_post, new_data)
-df_pred_post
 ```
 
-```{r posterior prediction plot pooled 2}
+```{r posterior prediction plot pooled 2, warning=FALSE}
 ggplot(sample_n(sample_data_best_5,300)) + 
-  aes(x = jitter(gincdif,1.5)) + 
+  aes(x = jitter(gincdif,1.5)) +
   geom_ribbon(aes(ymin = lower, ymax = upper), data = df_pred_post, 
               alpha = 0.4, fill = "grey60") + 
   geom_line(aes(y = median), data = df_pred_post, colour = "#3366FF", size = 1) + 
-  geom_point(aes(y = lrscale))
-# + scale_x_discrete(name ="Government SHould", limits=c(".2","1"), breaks=c("0.2","1"),labels=c("0.2" = "Strongly Agree", "1" = "Strongly Disagree"))
+  geom_point(aes(y = lrscale)) + 
+  labs(title="Predictive observations for the pooled model",
+        x ="First predictor", y = "LR Scale")
 ```
 
 At the right end of the plot, some of the posterior predictions at the 95% level exceed 1, which is a small error with the model.
@@ -370,7 +367,8 @@ last_plot() +
   geom_label(x = 0, y = 1, label = "1")
 ```
 
-```{r posterior prediction plot partially pooled}
+We repeat the posterior checking for the hierarchical model, using Finland as an example.
+```{r posterior prediction plot partially pooled, warning=FALSE}
 g_rng <- range(sample_data_best_5$gincdif) 
 g_steps <- seq(g_rng[1], g_rng[2], length.out = 80)
 
@@ -387,18 +385,17 @@ pred_post_fi <- posterior_predict(fit_hier_2, newdata = new_data_fi)
 dim(pred_post_fi)
 
 df_pred_post_fi <- tidy_predictions(pred_post_fi, new_data)
-df_pred_post_fi
-
 ```
 
 ```{r posterior prediction plot partially pooled 2}
-ggplot(sample_n(sample_data_best_5,300)) + 
+ggplot(sample_n(sample_data_best_5[which(sample_data_best_5$country=="FI"),],300)) + 
   aes(x = jitter(gincdif,1.5)) + 
   geom_ribbon(aes(ymin = lower, ymax = upper), data = df_pred_post_fi, 
               alpha = 0.4, fill = "grey60") + 
   geom_line(aes(y = median), data = df_pred_post_fi, colour = "#3366FF", size = 1) + 
-  geom_point(aes(y = lrscale))
-# + scale_x_discrete(name ="Government SHould", limits=c(".2","1"), breaks=c("0.2","1"),labels=c("0.2" = "Strongly Agree", "1" = "Strongly Disagree"))
+  geom_point(aes(y = lrscale)) + 
+  labs(title="Predictive observations for the Hierarchical model (Finland)",
+        x ="First predictor", y = "LR Scale")
 ```
 
 
@@ -421,8 +418,8 @@ We are especially interested in those countries where the first variable "Govern
 
 ## 9. Code Resources
 
-Correlation plots: \url{https://avehtari.github.io/modelselection/diabetes.html}
-Posterior predictive plotting: \url{https://www.tjmahr.com/visualizing-uncertainty-rstanarm/}
-Variable selection: \url{https://mc-stan.org/projpred/articles/quickstart.html}
-Partial pooling: \url{http://mc-stan.org/rstanarm/articles/pooling.html}
-  and \url{https://mc-stan.org/users/documentation/case-studies/tutorial_rstanarm.html}
+Correlation plots: https://avehtari.github.io/modelselection/diabetes.html
+Posterior predictive plotting: https://www.tjmahr.com/visualizing-uncertainty-rstanarm/
+Variable selection: https://mc-stan.org/projpred/articles/quickstart.html
+Partial pooling: http://mc-stan.org/rstanarm/articles/pooling.html
+  and https://mc-stan.org/users/documentation/case-studies/tutorial_rstanarm.html
