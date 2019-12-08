@@ -235,7 +235,10 @@ The previous model is pooled, assuming there is no differences between countries
 
 
 ## Separate model
-```{r cache=TRUE}
+```{r cache=TRUE, results=FALSE}
+sample_data_best_5 = cbind(sample_data$country,sample_data_best_5)
+colnames(sample_data_best_5)[1] = "country"
+
 nopooled <- stan_lmer(formula = lrscale ~ 0 + (1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen | country),
                data = sample_data_best_5, iter=200)
 
@@ -353,6 +356,6 @@ The main conclusion is that, while Europe has common trends in what it means to 
 
 Despite the differences, some trends are as-expected. For example, friendliness to immigrants certainly correlates, in most countries, with being more "left" on the political spectrum. In the countries that see different correlations, perhaps it is because--in the european context--they see themselves as possible migrants to other, wealthier European countries. 
 
-We are especially interested in those countries where the first variable "Government should reduce differences in income levels" does not correlate with the traditional left-right spectrum. We discussed with a Polish friend and learned that "left" in Poland is seen differently from the way it is seen in Western Europe, perhaps due to historical issues with communism and the USSR. We have no basis to make further claims, but it is an interesting avenue for research.
+We are especially interested in those countries where the first variable "Government should reduce differences in income levels" does not correlate with the traditional left-right spectrum. We discussed with a Polish friend and learned that "left" in Poland is seen differently from the way it is seen in Western Europe. Left and right in Poland are more correlated with social issues such as religion and LGBT rights. We have no basis to make further claims, but it is an interesting avenue for research.
 
 
