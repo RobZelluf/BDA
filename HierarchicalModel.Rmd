@@ -89,7 +89,10 @@ fit1 <- stan_glm(lrscale ~ gincdif + impcntr + dfincac + rlgblg + sbsrnen, data=
 
 ## Separate model
 ```{r cache=TRUE}
+nopooled <- stan_lmer(formula = lrscale ~ 0 + (1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen | country),
+               data = sample_data_best_5, iter=200)
 
+coef(nopooled)
 ```
 
 ## Hierarchical model
