@@ -25,8 +25,8 @@ library(lme4)
 theme_set(bayesplot::theme_default(base_family = "sans"))
 SEED = 1234 
 options(mc.cores = parallel::detectCores())
-
 ```
+
 ## 0. Introduction
 We explore what variables predict political affiliation in European countries, and what models allow us to best make those predictions. We take a large dataset from the European Social Survey, filter and clean it, and select the best predictive variables using two different techniques. Then we fit a linear model to the data, comparing the one-predictor and five-predictor models. Finally, we fit a hierarchical (partially pooled) model to the data, so that we can preserve the distinctions between different countries, while also taking advantage of common political sentiments across Europe. Then we show that this model performs better than the pooled model at prediction and validation.
 
@@ -83,13 +83,6 @@ corrplot(cor(data.frame(sample_data[corr_best_columns])))
 
 Instead of using the correlation matrix method for variable selection, we can fit a generalized linear model where the outcome follows all the 105 variables (excluding the country variable).
 
-### Note about Stan
-We used rstanarm for our stan implementations. Rstanarm has prebuilt models that take a very flexible statistical formula parameter. We use the stan_lm, stan_glm and stan_lmer functions. We used a gaussian error term for all functions, so the lm and glm functions are similar. The major difference is that the stan_lmer function allows for interactions between parameters, i.e. it can implement partially pooled (hierarchical) models. We did write stan models, similar to the hierarchical model used in Exercise 7, but ended up using the rstanarm implementation for our final report.
-
-### Note about Priors
-
-For all models in this report, we use a weakly informative student-t prior. We choose student-t because it has fatter tails than the gaussian distribution, reflecting the greater frequency of extreme political beliefs.
-
 ```{r linear model for varsel, cache=TRUE, results=FALSE}
 t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
 fit_lm_all <- stan_glm(lrscale ~ ., data=sample_data, prior = t_prior, prior_intercept = t_prior)
@@ -143,57 +136,74 @@ pplot+ geom_vline(xintercept = 0)
 
 ## 3. Models
 
-## Pooled model
-The pooled model considers all data the same, thus not take into account the country each datapoint is from. It fits one linear model to predict the left-right scale, based on all input variables. 
+### Note about Stan
+We used rstanarm for our stan implementations. Rstanarm has prebuilt models that take a very flexible statistical formula parameter. We use the stan_lm, stan_glm and stan_lmer functions. We used a gaussian error term for all functions, so the lm and glm functions are similar. The major difference is that the stan_lmer function allows for interactions between parameters, i.e. it can implement partially pooled (hierarchical) models. We did write stan models, similar to the hierarchical model used in Exercise 7, but ended up using the rstanarm implementation for our final report.
 
-Below is a summary of the simple linear five-predictor pooled model.
+### Note about Priors
+For all models in this report, we use a weakly informative student-t prior. We choose student-t because it has fatter tails than the gaussian distribution, reflecting the greater frequency of extreme political beliefs.
+
+### Pooled model
+The pooled model considers all data the same, thus not take into account the country each datapoint is from. It fits one linear model to predict the left-right scale, based on all input variables. This model was also used above after variable selection to show the slope-paramater distributions for each of the five predictors.
+
+Below is a summary of the simple linear five-predictor pooled model fitted above.
 
 ```{r}
 summary(fit_lm_5)
 ```
 
-## Partially pooled
-The previous model is pooled, assuming there is no differences between countries. The partially pooled model allows for differentation between countries. Each country will have it's own intecept and slope per variable, but these parameters are fitted to an overall distribution. This still allows the model to generalize over the entire dataset, while being able to fit a more narrow distribution on each country individually.
-
-
 ## Separate model
+The seperate model simply fits a different five-predictor linear model for each of the 21 countries. We generate this model for contrast in the plot that follows.
 ```{r seperate models, cache=TRUE, results=FALSE}
 sample_data_best_5 = cbind(country[sample_rows],sample_data_best_5)
 colnames(sample_data_best_5)[1] = "country"
 
 nopooled <- stan_lmer(formula = lrscale ~ 0 + (1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen | country),
                data = sample_data_best_5)
+```
+```{r}
+summary(nopooled)
+```
 
+Here are the slope and intercept parameters for each country for the non-pooled model.
+```{r coefficients for nonpooled}
 coef(nopooled)
 ```
 
-## Hierarchical model
-```{r hierarchical model, cache=TRUE}
+### Hierarchical model
+The previous model is pooled, assuming there is no differences between countries. The partially pooled model allows for differentation between countries. Each country will have it's own intecept and slope per variable, but these parameters are fitted to an overall distribution. This still allows the model to generalize over the entire dataset, while being able to fit a more narrow distribution on each country individually.
+
+```{r hierarchical model, cache=TRUE, results=FALSE}
 fit_hier_2 <- stan_lmer(lrscale ~ 1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen + (1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen | country), data=sample_data_best_5)
-print(fit_hier_2, digits=2)
 ```
 
+```{r summary of hierarchical}
+summary(fit_hier_2, digits=2)
+```
+
+Following are the slope and intercept parameters for each country in the hierarchical model. Note that they generally agree at least about the direction of the correlation, except in a few interesting cases.
 ```{r}
 coefficients <- coef(fit_hier_2)[1]
 ```
 
 ### Effective Sample Size
-The effective sample size in the Hierarchical Model is at least 3000 for each parameter, which is plenty!
+As we can see in the summary for each of the three models, the effective sample size for each parameter is at least 3000, which is plenty!
 
 ### Rhat convergence
-All of the models have r hat values of 1.0, so the HMC chains were both convergent and independent. 
+All of the models also have r hat values of 1.0, so the HMC chains were both convergent and independent. 
 
 ### HMC-Specific diagnostics
 We received no warnings about tree depth or divergences. Therefore, we assume that the HMC chains ran properly and never exceeded the default maximum tree depth (10). Nor did we get any divergent transitions, so there was no need to adjust the default adapt_delta parameter (0.8). 
 
-## Interesting countries:
-Sweden: Really steep slopes for most variables
-Poland and Siberia: slope different sign than other countries for many variables
-Italy: Very large slope for impcntr
-EE: Max slope for rlgblg
-LT: Min slope for impcntr
-CZ: Min slope for sbsrnen
+### Interesting anomalies:
+Sweden: Has steep slopes for most variables, possibly indicating greater political polarization along these variables.
+Poland and Slovenia: slope different sign than other countries for many variables, indicating that "left" and "right" carry different connotations in these countries.
+Italy: Very large slope for impcntr, possibly indicating that immigration is a very divisive topic in Italy right now.
+EE: Max slope for rlgblg, possibly indicating that religion is a very divisive topic in Estonia.
+LT: Min slope for impcntr, possibly indicating that immigration is not a very important political topic in Lithuania right now.
+CZ: Min slope for sbsrnen, possibly indicating that climate change is not a critical political issue in Czechia right now.
 
+## 4. Plot of all models in all countries
+The following plot shows each of the 3 models for each of the 21 countries in the survey. The line for the pooled model is the same for each country, but the others differ. Notice that the hierarchical model is similar to the seperate model, but skews slightly towards the pooled result.
 ```{r, fig.height=12, fig.width=12}
 
 # (0) Set axes & choose schools
@@ -252,13 +262,12 @@ ggplot(data = df8,
   
   scale_x_continuous(breaks = c(0, 1)) + 
   labs(title = "Complete-pooling, No-pooling, and Partial pooling estimates",
-       x = "", 
-       y = "Total score on coursework paper")+theme_bw( base_family = "serif")
+       x = "Government should reduce income differences", 
+       y = "Left-Right Spectrum")+theme_bw( base_family = "serif")
 
 ```
 
-## Validation and Leave-One-Out Analysis
-
+## 5. Validation and Leave-One-Out Analysis
 Below, we can see the loo output for the best 5 variable simple linear model. All k values are less than 0.5, so the loo output has good convergence. The p_loo value is 7.7, which is quite high for a ten parameter model (11 parameters including the bias term).
 
 ```{r loo comparison, cache=TRUE}
@@ -273,7 +282,6 @@ Loo_compare() also shows a clear preference for the five-variable model over the
 loo_compare(loo_5, loo_1)
 ```
 
-
 ```{r}
 loo_compare(loo_hier, loo_5)
 ```
@@ -282,7 +290,7 @@ loo_compare(loo_hier, loo_5)
 loo_5
 ```
 
-## Posterior Predictive Checking
+## 6. Posterior Predictive Checking
 
 Now that we have selected the best variable to use for our models, we can fit a generalized linear model on the first predictor, "Government should reduce differences in income levels" and compare that with the five-variable and all-variable simple linear models.
 
@@ -388,7 +396,7 @@ ggplot(sample_n(sample_data_best_5,300)) +
 ```
 
 
-## Problems and Potential Improvements
+## 7. Problems and Potential Improvements
 
 We would like to further understand the differences between countries. Also, we would love to be able to explore other connections in the data set, not only predicting the political spectrum alignment. Self-identification as "left" or "right" is a limited concept without much depth.
 
@@ -397,7 +405,7 @@ As far as the models go, one potential improvement is to use a different (non-Ga
 Another potential improvement to explore would be to choose different variables for each of the 21 countries. The five best predictive variables might be different in Poland vs. Finland, for example, since Poland is more politically divided by social rather than economic issues.
 
 
-## Conclusion
+## 8. Conclusion
 
 The main conclusion is that, while Europe has common trends in what it means to identify as "left" and "right" on the political spectrum, but major differences still exist between different countries. These terms don't mean the same thing in each country, as you can see in the partially-pooled plots comparing, for example, Sweden and Poland.
 
@@ -405,7 +413,7 @@ Despite the differences, some trends are as-expected. For example, friendliness 
 
 We are especially interested in those countries where the first variable "Government should reduce differences in income levels" does not correlate with the traditional left-right spectrum. We discussed with a Polish friend and learned that "left" in Poland is seen differently from the way it is seen in Western Europe. Left and right in Poland are more correlated with social issues such as religion and LGBT rights. We have no basis to make further claims, but it is an interesting avenue for research.
 
-## Code Resources
+## 9. Code Resources
 
 Correlation plots: \url{https://avehtari.github.io/modelselection/diabetes.html}
 Posterior predictive plotting: \url{https://www.tjmahr.com/visualizing-uncertainty-rstanarm/}
