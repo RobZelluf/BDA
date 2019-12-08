@@ -81,10 +81,144 @@ corr_best_variables = colnames(ESSData)[corr_best_columns[2:21]]
 corrplot(cor(data.frame(sample_data[corr_best_columns])))
 ```
 
+Instead of using the correlation matrix method for variable selection, we can fit a generalized linear model where the outcome follows all the 105 variables (excluding the country variable).
 
+### Priors
 
+For all models in this report, we use a weakly informative student-t prior. We choose student-t because it has fatter tails than the gaussian distribution, reflecting the greater frequency of extreme political beliefs.
 
+```{r cache=TRUE, results=FALSE}
+t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
+fit_lm_all <- stan_glm(lrscale ~ ., data=sample_data, prior = t_prior, prior_intercept = t_prior)
+summary(fit_lm_all, digits=2)
+```
 
+After fitting the model, we use the CRAN varsel() function, which uses cross-validation to pick the variables that contribute most to the model accuracy.
+```{r eval = FALSE}
+# Slow! Run once, save variable
+vs <- varsel(fit_lm_all, nv_max=40)
+saveRDS(vs, file = "variable_selection_40_tprior.rds")
+```
+The five most explanatory variables, according to the varSel function are:
+
+1) gincdif: "Government should reduce differences in income levels (Agree<-->Disagree)"
+2) dfincac: "Large differences in income acceptable to reward talents and efforts (Agree<-->Disagree)"
+3) impcntr: "Allow many/few immigrants from poorer countries outside Europe (Many<-->Few)"
+4) rlgblg: "Belonging to a particular religion or denomination (Yes/No)"
+5) sbsrnen: "Favour subsidize renewable energy to reduce climate change (Agree<-->Disagree)"
+
+They are all scale questions except for the binary religion variable.
+
+You can also see the plot, which shows the improved explanatory power of each additional variable. In this case, since the data is complex, the added power is not very great, but the model shows clear improvement across the first five variables, which slows after the fifth variable.
+
+```{r eval=FALSE}
+vs = readRDS(file = "variable_selection_40_tprior.rds")
+varsel_plot(vs, stats=c('elpd', 'rmse'))
+varsel_best_variables = colnames(ESSData)[vs$vind[1:5]]
+varsel_best_variables
+sample_data_best_5 = cbind(sample_data$lrscale,sample_data[,vs$vind[1:5]])
+```
+
+```{r echo=FALSE}
+# Hardcoded best variables
+best_5 = c(29,22,41,79,85)
+sample_data_best_5 = cbind(sample_data$lrscale,sample_data[,best_5])
+colnames(sample_data_best_5)[1] = "lrscale"
+```
+
+The following plot shows the 95% distribution of posterior draws for the linear weights for each of these five variables and the bias term. Each distribution sits clearly on the positive or negative side of 0, indicating confident predictive value.
+
+```{r five variable linear model, cache=TRUE}
+fit_lm_5 = stan_glm(lrscale ~ ., data=sample_data_best_5, prior = t_prior, prior_intercept = t_prior)
+```
+
+```{r variable correlation plot}
+pplot<-plot(fit_lm_5, "areas", prob = 0.95, prob_outer = 1)
+pplot+ geom_vline(xintercept = 0)
+```
+
+## 3. Graphing and Prediction with Linear Model with One Predictor
+
+Now that we have selected the best variable to use for our models, we can fit a generalized linear model on the first predictor, "Government should reduce differences in income levels" and compare that with the five-variable and all-variable simple linear models.
+
+```{r cache=TRUE, results=FALSE} 
+# Try horseshoe prior
+t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
+fit_lm_1 <- stan_glm(lrscale ~ gincdif, data=sample_data_best_5, prior = t_prior, prior_intercept = t_prior)
+```
+Below is a summary of the simple linear five-predictor model. Note that all rhat values are 1.0, indicating good convergence and independence of of the MCMC
+
+```{r}
+summary(fit_lm_5)
+```
+
+```{r}
+summary(fit_lm_1, digits=2)
+```
+
+Best fit line
+```{r, fig.height=5}
+ggplot(sample_data_best_5, aes(jitter(gincdif,1), jitter(lrscale,1))) +
+  geom_point() +
+  geom_abline(intercept = coef(fit_lm_1)[1], slope = coef(fit_lm_1)[2]) +
+  labs(x = "Government should reduce income differences", y = "Political Alignment")
+```
+
+```{r echo=FALSE}
+# Credit for this plot: 
+tidy_predictions <- function(mat_pred, df_data, obs_name = "observation",
+                             prob_lwr = .025, prob_upr = .975) {
+  # Get data-frame with one row per fitted value per posterior sample
+  df_pred <- mat_pred %>% 
+    as_data_frame %>% 
+    setNames(seq_len(ncol(.))) %>% 
+    tibble::rownames_to_column("posterior_sample") %>% 
+    tidyr::gather_(obs_name, "fitted", setdiff(names(.), "posterior_sample"))
+  df_pred
+  
+  # Helps with joining later
+  class(df_pred[[obs_name]]) <- class(df_data[[obs_name]])
+  
+  # Summarise prediction interval for each observation
+  df_pred %>% 
+    group_by_(obs_name) %>% 
+    summarise(median = median(fitted),
+              lower = quantile(fitted, prob_lwr), 
+              upper = quantile(fitted, prob_upr)) %>% 
+    left_join(df_data, by = obs_name)
+}
+```
+
+```{r}
+g_rng <- range(sample_data_best_5$gincdif) 
+g_steps <- seq(g_rng[1], g_rng[2], length.out = 80)
+new_data <- data.frame(
+  observation = seq_along(g_steps), 
+  gincdif = g_steps)
+pred_post <- posterior_predict(fit_lm_1, newdata = new_data)
+dim(pred_post)
+
+df_pred_post <- tidy_predictions(pred_post, new_data)
+df_pred_post
+
+```
+
+```{r}
+ggplot(sample_n(sample_data_best_5,300)) + 
+  aes(x = jitter(gincdif,1.5)) + 
+  geom_ribbon(aes(ymin = lower, ymax = upper), data = df_pred_post, 
+              alpha = 0.4, fill = "grey60") + 
+  geom_line(aes(y = median), data = df_pred_post, colour = "#3366FF", size = 1) + 
+  geom_point(aes(y = lrscale))
+# + scale_x_discrete(name ="Government SHould", limits=c(".2","1"), breaks=c("0.2","1"),labels=c("0.2" = "Strongly Agree", "1" = "Strongly Disagree"))
+```
+
+At the right end of the plot, some of the posterior predictions at the 95% level exceed 1, which is a small error with the model.
+```{r}
+last_plot() + 
+  geom_hline(yintercept = 1, color = "grey50") + 
+  geom_label(x = 0, y = log10(24), label = "24 hours")
+```
 
 
 
@@ -97,11 +231,7 @@ The pooled model considers all data the same, thus not take into account the cou
 The previous model is pooled, assuming there is no differences between countries. The partially pooled model allows for differentation between countries. Each country will have it's own intecept and slope per variable, but these parameters are fitted to an overall distribution. This still allows the model to generalize over the entire dataset, while being able to fit a more narrow distribution on each country individually.
 
 ## Pooled model
-```{r cache=TRUE}
-# Try horseshoe prior
-t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
-fit1 <- stan_glm(lrscale ~ gincdif + impcntr + dfincac + rlgblg + sbsrnen, data=sample_data_best_5, prior = t_prior, prior_intercept = t_prior)
-```
+Fitted before (fit_lm_5)
 
 ## Separate model
 ```{r cache=TRUE}
@@ -146,8 +276,8 @@ df <- data.frame(y, x, countryid)
 df8 <- subset(df, countryid %in% sel.cntry)
 
 # (2) Assign complete-pooling, no-pooling, partial pooling estimates
-a_pooled <- coef(fit1)[1]
-b_pooled <- coef(fit1)[2]
+a_pooled <- coef(fit_lm_1)[1]
+b_pooled <- coef(fit_lm_1)[2]
 
 a_part_pooled <- coef(fit_hier_2)$country[, 1]
 b_part_pooled <- coef(fit_hier_2)$country[, 2]
@@ -185,6 +315,30 @@ ggplot(data = df8,
 ```
 
 
+## Validation and Leave-One-Out Analysis
 
+Below, we can see the loo output for the best 5 variable simple linear model. All k values are less than 0.5, so the loo output has good convergence. The p_loo value is 7.7, which is quite high for a ten parameter model (11 parameters including the bias term).
 
+```{r loo comparison, cache=TRUE}
+loo_1 <- loo(fit_lm_1)
+loo_5 <- loo(fit_lm_5)
+loo_all <- loo(fit_lm_all)
+loo_hier <- loo(fit_hier_2)
+loo_5
 ```
+Loo_compare() also shows a clear preference for the five-variable model over the one-variable model. The elpd difference is 174.2 between the two models, with a standard error of only 19.9, so the preference is highly significant.
+```{r}
+loo_compare(loo_5, loo_1)
+```
+
+
+```{r}
+loo_compare(loo_hier, loo_5)
+```
+
+```{r loo output}
+loo_5
+```
+
+## Conclusion
+
