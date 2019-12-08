@@ -418,8 +418,8 @@ We are especially interested in those countries where the first variable "Govern
 
 ## 9. Code Resources
 
-Correlation plots: https://avehtari.github.io/modelselection/diabetes.html
-Posterior predictive plotting: https://www.tjmahr.com/visualizing-uncertainty-rstanarm/
-Variable selection: https://mc-stan.org/projpred/articles/quickstart.html
-Partial pooling: http://mc-stan.org/rstanarm/articles/pooling.html
+Correlation plots: https://avehtari.github.io/modelselection/diabetes.html\\
+Posterior predictive plotting: https://www.tjmahr.com/visualizing-uncertainty-rstanarm/\\
+Variable selection: https://mc-stan.org/projpred/articles/quickstart.html\\
+Partial pooling: http://mc-stan.org/rstanarm/articles/pooling.html\\
   and https://mc-stan.org/users/documentation/case-studies/tutorial_rstanarm.html
