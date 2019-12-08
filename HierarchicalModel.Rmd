@@ -176,6 +176,11 @@ print(fit_hier_2, digits=2)
 ```{r}
 coefficients <- coef(fit_hier_2)[1]
 ```
+
+### Effective Sample Size
+
+### Rhat convergence
+
 ## Interesting countries:
 Sweden: Really steep slopes for most variables
 Poland and Siberia: slope different sign than other countries for many variables
@@ -272,7 +277,7 @@ loo_compare(loo_hier, loo_5)
 loo_5
 ```
 
-## 3. Graphing and Prediction with Linear Model with One Predictor
+## Posterior Predictive Checking
 
 Now that we have selected the best variable to use for our models, we can fit a generalized linear model on the first predictor, "Government should reduce differences in income levels" and compare that with the five-variable and all-variable simple linear models.
 
@@ -297,7 +302,7 @@ ggplot(sample_data_best_5, aes(jitter(gincdif,1), jitter(lrscale,1))) +
 
 
 ```{r echo=FALSE}
-# Credit for this plot: 
+# Credit for this plot: RStanARM basics: visualizing uncertainty in linear regression from Tristan Mahr
 tidy_predictions <- function(mat_pred, df_data, obs_name = "observation",
                              prob_lwr = .025, prob_upr = .975) {
   # Get data-frame with one row per fitted value per posterior sample
@@ -378,7 +383,9 @@ ggplot(sample_n(sample_data_best_5,300)) +
 ```
 
 
+## Problems and Potential Improvements
 
+We would like to further understand the differences between countries. Also, we would love to be able to explore other connections in the data set, not only predicting the political spectrum alignment. Self-identification as "left" or "right" is a limiting concept.
 
 
 ## Conclusion
@@ -389,4 +396,10 @@ Despite the differences, some trends are as-expected. For example, friendliness 
 
 We are especially interested in those countries where the first variable "Government should reduce differences in income levels" does not correlate with the traditional left-right spectrum. We discussed with a Polish friend and learned that "left" in Poland is seen differently from the way it is seen in Western Europe. Left and right in Poland are more correlated with social issues such as religion and LGBT rights. We have no basis to make further claims, but it is an interesting avenue for research.
 
+## Code Resources
 
+Correlation plots: \url{https://avehtari.github.io/modelselection/diabetes.html}
+Posterior predictive plotting: \url{https://www.tjmahr.com/visualizing-uncertainty-rstanarm/}
+Variable selection: \url{https://mc-stan.org/projpred/articles/quickstart.html}
+Partial pooling: \url{http://mc-stan.org/rstanarm/articles/pooling.html}
+  and \url{https://mc-stan.org/users/documentation/case-studies/tutorial_rstanarm.html}
