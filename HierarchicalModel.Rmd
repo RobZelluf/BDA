@@ -147,11 +147,7 @@ Now that we have selected the best variable to use for our models, we can fit a 
 t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
 fit_lm_1 <- stan_glm(lrscale ~ gincdif, data=sample_data_best_5, prior = t_prior, prior_intercept = t_prior)
 ```
-Below is a summary of the simple linear five-predictor model. Note that all rhat values are 1.0, indicating good convergence and independence of of the MCMC
 
-```{r}
-summary(fit_lm_5)
-```
 
 ```{r}
 summary(fit_lm_1, digits=2)
@@ -228,11 +224,15 @@ last_plot() +
 ## Pooled model
 The pooled model considers all data the same, thus not take into account the country each datapoint is from. It fits one linear model to predict the left-right scale, based on all input variables. 
 
+Below is a summary of the simple linear five-predictor pooled model. Note that all rhat values are 1.0, indicating good convergence and independence of of the MCMC
+
+```{r}
+summary(fit_lm_5)
+```
+
 ## Partially pooled
 The previous model is pooled, assuming there is no differences between countries. The partially pooled model allows for differentation between countries. Each country will have it's own intecept and slope per variable, but these parameters are fitted to an overall distribution. This still allows the model to generalize over the entire dataset, while being able to fit a more narrow distribution on each country individually.
 
-## Pooled model
-Fitted before (fit_lm_5)
 
 ## Separate model
 ```{r cache=TRUE}
@@ -350,5 +350,6 @@ The main conclusion is that, while Europe has common trends in what it means to 
 
 Despite the differences, some trends are as-expected. For example, friendliness to immigrants certainly correlates, in most countries, with being more "left" on the political spectrum. In the countries that see different correlations, perhaps it is because--in the european context--they see themselves as possible migrants to other, wealthier European countries. 
 
-We are especially interested in those countries where the first variable "Government should reduce differences in income levels" does not correlate with the traditional left-right spectrum. 
+We are especially interested in those countries where the first variable "Government should reduce differences in income levels" does not correlate with the traditional left-right spectrum. We discussed with a Polish friend and learned that "left" in Poland is seen differently from the way it is seen in Western Europe, perhaps due to historical issues with communism and the USSR. We have no basis to make further claims, but it is an interesting avenue for research.
+
 
