@@ -152,7 +152,14 @@ Below is a summary of the simple linear five-predictor pooled model fitted above
 summary(fit_lm_5)
 ```
 
-## Separate model
+### One-predictor pooled model
+We also fit a one-predictor pooled model for the sake of loo comparison.
+```{r one predictor model, cache=TRUE, results=FALSE} 
+t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
+fit_lm_1 <- stan_glm(lrscale ~ gincdif, data=sample_data_best_5, prior = t_prior, prior_intercept = t_prior)
+```
+
+### Separate model
 The seperate model simply fits a different five-predictor linear model for each of the 21 countries. We generate this model for contrast in the plot that follows.
 ```{r seperate models, cache=TRUE, results=FALSE}
 sample_data_best_5 = cbind(country[sample_rows],sample_data_best_5)
@@ -218,8 +225,8 @@ df <- data.frame(y, x, countryid)
 df8 <- subset(df, countryid %in% sel.cntry)
 
 # (2) Assign complete-pooling, no-pooling, partial pooling estimates
-a_pooled <- coef(fit_lm_1)[1]
-b_pooled <- coef(fit_lm_1)[2]
+a_pooled <- coef(fit_lm_5)[1]
+b_pooled <- coef(fit_lm_5)[2]
 
 a_nopooled <- coef(nopooled)$country[,1]
 b_nopooled <- coef(nopooled)$country[,2]
@@ -294,13 +301,6 @@ loo_5
 ## 6. Posterior Predictive Checking
 
 Now that we have selected the best variable to use for our models, we can fit a generalized linear model on the first predictor, "Government should reduce differences in income levels" and compare that with the five-variable and all-variable simple linear models.
-
-```{r one predictor model, cache=TRUE, results=FALSE} 
-# Try horseshoe prior
-t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
-fit_lm_1 <- stan_glm(lrscale ~ gincdif, data=sample_data_best_5, prior = t_prior, prior_intercept = t_prior)
-```
-
 
 ```{r}
 summary(fit_lm_1, digits=2)
