@@ -98,7 +98,7 @@ summary(fit_lm_all, digits=2)
 
 After fitting the model, we use the CRAN varsel() function, which uses cross-validation to pick the variables that contribute most to the model accuracy.
 
-```{r eval = FALSE}
+```{r cache=TRUE}
 # Slow! Run once, save variable
 vs <- varsel(fit_lm_all, nv_max=40)
 saveRDS(vs, file = "variable_selection_40_tprior.rds")
@@ -115,7 +115,7 @@ They are all scale questions except for the binary religion variable.
 
 You can also see the plot, which shows the improved explanatory power of each additional variable. In this case, since the data is complex, the added power is not very great, but the model shows clear improvement across the first five variables, which slows after the fifth variable.
 
-```{r eval=FALSE}
+```{r cache=TRUE}
 vs = readRDS(file = "variable_selection_40_tprior.rds")
 varsel_plot(vs, stats=c('elpd', 'rmse'))
 varsel_best_variables = colnames(ESSData)[vs$vind[1:5]]
@@ -239,18 +239,18 @@ The previous model is pooled, assuming there is no differences between countries
 
 ## Separate model
 ```{r cache=TRUE, results=FALSE}
-sample_data_best_5 = cbind(sample_data$country,sample_data_best_5)
+sample_data_best_5 = cbind(country[sample_rows],sample_data_best_5)
 colnames(sample_data_best_5)[1] = "country"
 
 nopooled <- stan_lmer(formula = lrscale ~ 0 + (1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen | country),
-               data = sample_data_best_5, iter=200)
+               data = sample_data_best_5)
 
 coef(nopooled)
 ```
 
 ## Hierarchical model
 ```{r cache=TRUE}
-fit_hier_2 <- stan_lmer(lrscale ~ 1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen + (1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen | country), data=sample_data_best_5, iter=200)
+fit_hier_2 <- stan_lmer(lrscale ~ 1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen + (1 + gincdif + impcntr + dfincac + rlgblg + sbsrnen | country), data=sample_data_best_5)
 print(fit_hier_2, digits=2)
 ```
 
