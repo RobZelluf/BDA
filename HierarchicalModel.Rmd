@@ -25,7 +25,7 @@ library(lme4)
 theme_set(bayesplot::theme_default(base_family = "sans"))
 SEED = 1234 
 options(mc.cores = parallel::detectCores())
-ITER = 2000
+ITER = 1000
 ```
 
 ## 0. Introduction
@@ -60,7 +60,7 @@ drops = c("cntry","yrbrn")
 ESSData = ESSData[,!(names(ESSData) %in% drops)] / 10
 ESSData = data.frame(age,ESSData)
 
-SAMPLESIZE = 20000
+SAMPLESIZE = 10000
 
 sample_rows = sample(seq(1,M),SAMPLESIZE)
 test_rows = sample(seq(1,SAMPLESIZE),1000)
