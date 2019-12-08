@@ -71,7 +71,7 @@ corr_best_variables = colnames(ESSData)[corr_best_columns[2:21]]
 corrplot(cor(data.frame(sample_data[corr_best_columns])))
 ```
 Instead of using the correlation matrix method for variable selection, we can fit a generalized linear model where the outcome follows all the 105 variables (excluding the country variable).
-```{r cache=TRUE}
+```{r cache=TRUE, results=FALSE}
 # Try proj pred instead
 t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
 fit_lm_all <- stan_glm(lrscale ~ ., data=sample_data, prior = t_prior, prior_intercept = t_prior)
@@ -82,7 +82,6 @@ After fitting the model, we use the CRAN varsel() function, which uses cross-val
 ```{r eval = FALSE}
 # Slow! Run once, save variable
 vs <- varsel(fit_lm_all, nv_max=40)
-varsel_plot(vs, stats=c('elpd', 'rmse'))
 saveRDS(vs, file = "variable_selection_40_tprior.rds")
 ```
 The five most explanatory variables, according to the varSel function are:
@@ -95,8 +94,11 @@ The five most explanatory variables, according to the varSel function are:
 
 They are all scale questions except for the binary religion variable.
 
+You can also see the plot, which shows the improved explanatory power of each additional variable. In this case, since the data is complex, the added power is not very great, but the model shows clear improvement across the first five variables, which slows after the fifth variable.
+
 ```{r eval=FALSE}
 vs = readRDS(file = "variable_selection_40_tprior.rds")
+varsel_plot(vs, stats=c('elpd', 'rmse'))
 varsel_best_variables = colnames(ESSData)[vs$vind[1:5]]
 varsel_best_variables
 sample_data_best_5 = cbind(sample_data$lrscale,sample_data[,vs$vind[1:5]])
@@ -109,19 +111,34 @@ sample_data_best_5 = cbind(sample_data$lrscale,sample_data[,best_5])
 colnames(sample_data_best_5)[1] = "lrscale"
 ```
 
-## 3. Linear Model with One Predictor
+The following plot shows the 95% distribution of posterior draws for the linear weights for each of these five variables and the bias term. Each distribution sits clearly on the positive or negative side of 0, indicating confident predictive value.
 
-Now that we have selected the best variable to use for our models, we can fit a generalized linear model on the first predictor, "Government should reduce differences in income levels". 
-```{r cache=TRUE}
+```{r five variable linear model, cache=TRUE}
+fit_lm_5 = stan_glm(lrscale ~ ., data=sample_data_best_5, prior = t_prior, prior_intercept = t_prior)
+```
+
+```{r variable correlation plot}
+pplot<-plot(fit_lm_5, "areas", prob = 0.95, prob_outer = 1)
+pplot+ geom_vline(xintercept = 0)
+```
+
+
+## 3. Graphing and Prediction with Linear Model with One Predictor
+
+Now that we have selected the best variable to use for our models, we can fit a generalized linear model on the first predictor, "Government should reduce differences in income levels" and compare that with the five-variable and all-variable simple linear models.
+
+```{r cache=TRUE, results=FALSE} 
 # Try horseshoe prior
 t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
-fit1 <- stan_glm(lrscale ~ gincdif, data=sample_data_best_5, prior = t_prior, prior_intercept = t_prior)
+fit_lm_1 <- stan_glm(lrscale ~ gincdif, data=sample_data_best_5, prior = t_prior, prior_intercept = t_prior)
 ```
 ```{r}
-print(fit1, digits=2)
+summary(fit_lm_5)
 ```
 
-
+```{r}
+summary(fit_lm_1, digits=2)
+```
 
 
 ```{r}
@@ -149,12 +166,12 @@ tidy_predictions <- function(mat_pred, df_data, obs_name = "observation",
 ```
 
 ```{r}
-g_rng <- range(sample_data$gincdif) 
+g_rng <- range(sample_data_best_5$gincdif) 
 g_steps <- seq(g_rng[1], g_rng[2], length.out = 80)
 new_data <- data.frame(
   observation = seq_along(g_steps), 
   gincdif = g_steps)
-pred_post <- posterior_predict(fit1, newdata = new_data)
+pred_post <- posterior_predict(fit_lm_1, newdata = new_data)
 dim(pred_post)
 
 df_pred_post <- tidy_predictions(pred_post, new_data)
@@ -171,7 +188,8 @@ ggplot(sample_n(sample_data_best_5,300)) +
   geom_point(aes(y = lrscale))
 # + scale_x_discrete(name ="Government SHould", limits=c(".2","1"), breaks=c("0.2","1"),labels=c("0.2" = "Strongly Agree", "1" = "Strongly Disagree"))
 ```
-At the right end of the plot, some of the posterior predictions at the 95% 
+
+At the right end of the plot, some of the posterior predictions at the 95% level exceed 1, which is a small error with the model.
 ```{r}
 last_plot() + 
   geom_hline(yintercept = 1, color = "grey50") + 
@@ -220,17 +238,37 @@ ADD HERE: TWO LINES DEPENDING ON COUNTRY
 
 
 ```{r, fig.height=5}
-# ggplot(sample_data, aes(jitter(gincdif,1), jitter(lrscale,1))) +
-#   geom_point() +
-#   geom_abline(intercept = coef(fit_lm_1)[1], slope = coef(fit_lm_1)[2]) +
-#   labs(x = "Government should reduce income differences", y = "Political Alignment")
-# ```
-# ```{r}
+ggplot(sample_data_best_5, aes(jitter(gincdif,1), jitter(lrscale,1))) +
+  geom_point() +
+  geom_abline(intercept = coef(fit_lm_1)[1], slope = coef(fit_lm_1)[2]) +
+  labs(x = "Government should reduce income differences", y = "Political Alignment")
+```
+
+```{r}
 # fit_lm_2 <- stan_glm(lrscale ~ gincdif + sbbsntx, data=sample_data_best_vars)
 # summary(fit_lm_2,digits=2)
 ```
 
 
+```{r loo comparison, cache=TRUE}
+loo_1 <- loo(fit_lm_1)
+loo_5 <- loo(fit_lm_5)
+loo_all <- loo(fit_lm_all)
+loo_compare(loo_1, loo_5)
+loo_compare(loo_5, loo_all)
+loo_5
+```
+
+
+
+
+
+
+
+
+
+
+UNUSED CODE
 
 
 ```{r}
@@ -272,13 +310,4 @@ ADD HERE: TWO LINES DEPENDING ON COUNTRY
 # print(accuracy(test_data_best_vars, fit_lm_3$coefficients))
 # test_data_best_vars
 # fit_lm_1$coefficients
-```
-
-```{r loo comparison, eval = FALSE}
-# loo_1 <- loo(fit_lm_1)
-# loo_2 <- loo(fit_lm_2)
-# loo_3 <- loo(fit_lm_3)
-# loo_logit <- loo(fit_lm_logit)
-# loo_compare(loo_1, loo_3)
-# loo_1
 ```
