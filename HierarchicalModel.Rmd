@@ -141,88 +141,7 @@ pplot<-plot(fit_lm_5, "areas", prob = 0.95, prob_outer = 1)
 pplot+ geom_vline(xintercept = 0)
 ```
 
-## 3. Graphing and Prediction with Linear Model with One Predictor
-
-Now that we have selected the best variable to use for our models, we can fit a generalized linear model on the first predictor, "Government should reduce differences in income levels" and compare that with the five-variable and all-variable simple linear models.
-
-```{r one predictor model, cache=TRUE, results=FALSE} 
-# Try horseshoe prior
-t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
-fit_lm_1 <- stan_glm(lrscale ~ gincdif, data=sample_data_best_5, prior = t_prior, prior_intercept = t_prior)
-```
-
-
-```{r}
-summary(fit_lm_1, digits=2)
-```
-
-Best fit line
-```{r, fig.height=5}
-ggplot(sample_data_best_5, aes(jitter(gincdif,1), jitter(lrscale,1))) +
-  geom_point() +
-  geom_abline(intercept = coef(fit_lm_1)[1], slope = coef(fit_lm_1)[2]) +
-  labs(x = "Government should reduce income differences", y = "Political Alignment")
-```
-
-```{r echo=FALSE}
-# Credit for this plot: 
-tidy_predictions <- function(mat_pred, df_data, obs_name = "observation",
-                             prob_lwr = .025, prob_upr = .975) {
-  # Get data-frame with one row per fitted value per posterior sample
-  df_pred <- mat_pred %>% 
-    as_data_frame %>% 
-    setNames(seq_len(ncol(.))) %>% 
-    tibble::rownames_to_column("posterior_sample") %>% 
-    tidyr::gather_(obs_name, "fitted", setdiff(names(.), "posterior_sample"))
-  df_pred
-  
-  # Helps with joining later
-  class(df_pred[[obs_name]]) <- class(df_data[[obs_name]])
-  
-  # Summarise prediction interval for each observation
-  df_pred %>% 
-    group_by_(obs_name) %>% 
-    summarise(median = median(fitted),
-              lower = quantile(fitted, prob_lwr), 
-              upper = quantile(fitted, prob_upr)) %>% 
-    left_join(df_data, by = obs_name)
-}
-```
-
-```{r posterior prediction plot one predictor}
-g_rng <- range(sample_data_best_5$gincdif) 
-g_steps <- seq(g_rng[1], g_rng[2], length.out = 80)
-new_data <- data.frame(
-  observation = seq_along(g_steps), 
-  gincdif = g_steps)
-pred_post <- posterior_predict(fit_lm_1, newdata = new_data)
-dim(pred_post)
-
-df_pred_post <- tidy_predictions(pred_post, new_data)
-df_pred_post
-
-```
-
-```{r posterior prediction plot one predictor 2}
-ggplot(sample_n(sample_data_best_5,300)) + 
-  aes(x = jitter(gincdif,1.5)) + 
-  geom_ribbon(aes(ymin = lower, ymax = upper), data = df_pred_post, 
-              alpha = 0.4, fill = "grey60") + 
-  geom_line(aes(y = median), data = df_pred_post, colour = "#3366FF", size = 1) + 
-  geom_point(aes(y = lrscale))
-# + scale_x_discrete(name ="Government SHould", limits=c(".2","1"), breaks=c("0.2","1"),labels=c("0.2" = "Strongly Agree", "1" = "Strongly Disagree"))
-```
-
-At the right end of the plot, some of the posterior predictions at the 95% level exceed 1, which is a small error with the model.
-```{r posterior prediction plot one predictor with line }
-last_plot() + 
-  geom_hline(yintercept = 1, color = "grey50") + 
-  geom_label(x = 0, y = 1, label = "1")
-```
-
-
-
-
+## 3. Models
 
 ## Pooled model
 The pooled model considers all data the same, thus not take into account the country each datapoint is from. It fits one linear model to predict the left-right scale, based on all input variables. 
@@ -352,6 +271,115 @@ loo_compare(loo_hier, loo_5)
 ```{r loo output}
 loo_5
 ```
+
+## 3. Graphing and Prediction with Linear Model with One Predictor
+
+Now that we have selected the best variable to use for our models, we can fit a generalized linear model on the first predictor, "Government should reduce differences in income levels" and compare that with the five-variable and all-variable simple linear models.
+
+```{r one predictor model, cache=TRUE, results=FALSE} 
+# Try horseshoe prior
+t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
+fit_lm_1 <- stan_glm(lrscale ~ gincdif, data=sample_data_best_5, prior = t_prior, prior_intercept = t_prior)
+```
+
+
+```{r}
+summary(fit_lm_1, digits=2)
+```
+
+Best fit line
+```{r, fig.height=5}
+ggplot(sample_data_best_5, aes(jitter(gincdif,1), jitter(lrscale,1))) +
+  geom_point() +
+  geom_abline(intercept = coef(fit_lm_1)[1], slope = coef(fit_lm_1)[2]) +
+  labs(x = "Government should reduce income differences", y = "Political Alignment")
+```
+
+
+```{r echo=FALSE}
+# Credit for this plot: 
+tidy_predictions <- function(mat_pred, df_data, obs_name = "observation",
+                             prob_lwr = .025, prob_upr = .975) {
+  # Get data-frame with one row per fitted value per posterior sample
+  df_pred <- mat_pred %>% 
+    as_data_frame %>% 
+    setNames(seq_len(ncol(.))) %>% 
+    tibble::rownames_to_column("posterior_sample") %>% 
+    tidyr::gather_(obs_name, "fitted", setdiff(names(.), "posterior_sample"))
+  df_pred
+  
+  # Helps with joining later
+  class(df_pred[[obs_name]]) <- class(df_data[[obs_name]])
+  
+  # Summarise prediction interval for each observation
+  df_pred %>% 
+    group_by_(obs_name) %>% 
+    summarise(median = median(fitted),
+              lower = quantile(fitted, prob_lwr), 
+              upper = quantile(fitted, prob_upr)) %>% 
+    left_join(df_data, by = obs_name)
+}
+```
+
+```{r posterior prediction plot pooled }
+g_rng <- range(sample_data_best_5$gincdif) 
+g_steps <- seq(g_rng[1], g_rng[2], length.out = 80)
+new_data <- data.frame(
+  observation = seq_along(g_steps), 
+  gincdif = g_steps)
+pred_post <- posterior_predict(fit_lm_1, newdata = new_data)
+dim(pred_post)
+
+df_pred_post <- tidy_predictions(pred_post, new_data)
+df_pred_post
+
+```
+
+```{r posterior prediction plot pooled 2}
+ggplot(sample_n(sample_data_best_5,300)) + 
+  aes(x = jitter(gincdif,1.5)) + 
+  geom_ribbon(aes(ymin = lower, ymax = upper), data = df_pred_post, 
+              alpha = 0.4, fill = "grey60") + 
+  geom_line(aes(y = median), data = df_pred_post, colour = "#3366FF", size = 1) + 
+  geom_point(aes(y = lrscale))
+# + scale_x_discrete(name ="Government SHould", limits=c(".2","1"), breaks=c("0.2","1"),labels=c("0.2" = "Strongly Agree", "1" = "Strongly Disagree"))
+```
+
+At the right end of the plot, some of the posterior predictions at the 95% level exceed 1, which is a small error with the model.
+```{r posterior prediction plot one predictor with line }
+last_plot() + 
+  geom_hline(yintercept = 1, color = "grey50") + 
+  geom_label(x = 0, y = 1, label = "1")
+```
+
+```{r posterior prediction plot partially pooled}
+g_rng <- range(sample_data_best_5$gincdif) 
+g_steps <- seq(g_rng[1], g_rng[2], length.out = 80)
+new_data <- data.frame(
+  observation = seq_along(g_steps), 
+  country = "FI"
+  gincdif = g_steps)
+pred_post <- posterior_predict(fit_hier_2, newdata = new_data)
+dim(pred_post)
+
+df_pred_post <- tidy_predictions(pred_post, new_data)
+df_pred_post
+
+```
+
+```{r posterior prediction plot partially pooled 2}
+ggplot(sample_n(sample_data_best_5,300)) + 
+  aes(x = jitter(gincdif,1.5)) + 
+  geom_ribbon(aes(ymin = lower, ymax = upper), data = df_pred_post, 
+              alpha = 0.4, fill = "grey60") + 
+  geom_line(aes(y = median), data = df_pred_post, colour = "#3366FF", size = 1) + 
+  geom_point(aes(y = lrscale))
+# + scale_x_discrete(name ="Government SHould", limits=c(".2","1"), breaks=c("0.2","1"),labels=c("0.2" = "Strongly Agree", "1" = "Strongly Disagree"))
+```
+
+
+
+
 
 ## Conclusion
 
