@@ -28,7 +28,7 @@ options(mc.cores = parallel::detectCores())
 
 ```
 ## 0. Introduction
-We explore what variables predict political affiliation in European countries, and what models allow us to best make those predictions. We take a large dataset from the European Social Survey, clean it, and select the best predictive variables. Then we fit different models to that data. Finally, we fit a hierarchical (partially pooled) model to the data, so that we can preserve the distinctions between different countries, while also taking advantage of common political sentiments across Europe.
+We explore what variables predict political affiliation in European countries, and what models allow us to best make those predictions. We take a large dataset from the European Social Survey, filter and clean it, and select the best predictive variables using two different techniques. Then we fit a linear model to the data, comparing the one-predictor and five-predictor models. Finally, we fit a hierarchical (partially pooled) model to the data, so that we can preserve the distinctions between different countries, while also taking advantage of common political sentiments across Europe. Then we show that this model performs better than the pooled model at prediction and validation.
 
 ## 1. Data
 Our data is from the European Social Survey conducted in 2016-2017. The data has more than 30,000 survey results across more than 500 variables in 21 countries. We first filtered the columns with non-spectrum (i.e. categorical) data and also filtered out columns that were country-specific or had a high number of non-answers. After filterning, we were left with nearly 22,000 observations across 105 variables.
@@ -70,7 +70,7 @@ test_data = data.frame(sample_data[test_rows,])
 ```
 
 ## 2. Variable Selection
-We used two methods for variable selection. The first method is a simple correlation. Figure 1 plots a correlation matrix for the 20 variables that correlate best with the "lrscale". The plot shows that all of these variables have slight positive or negative correlations with the outcome variable. This is decent selection method. \textit{However}, it fails to account for variables that are highly correlated with eachother. For example, we can see that the variables "imdfetn" ("Allow many/few immigrants of different race/ethnic group from majority") and "impcntr" ("Allow many/few immigrants from poorer countries outside Europe") are highly correlated, so they might carry redundant information for the model. That is why the next method, variable selection using a fitted linear model, is better.
+We used two methods for variable selection. The first method is a simple correlation. Figure 1 plots a correlation matrix for the 20 variables that correlate best with the "lrscale". The plot shows that all of these variables have slight positive or negative correlations with the outcome variable. This is decent selection method. \textit{However}, it fails to account for variables that are highly correlated with eachother. For example, we can see that the variables "imdfetn" ("Allow many/few immigrants of different race/ethnic group from majority") and "impcntr" ("Allow many/few immigrants from poorer countries outside Europe") are highly correlated, so they might carry redundant information for the model. That is why the next method, variable selection using a fitted linear model and the varsel() function, is better.
 
 ```{r correlation matrix}
 c = cor(data.frame(sample_data))
@@ -83,7 +83,7 @@ corrplot(cor(data.frame(sample_data[corr_best_columns])))
 
 Instead of using the correlation matrix method for variable selection, we can fit a generalized linear model where the outcome follows all the 105 variables (excluding the country variable).
 
-### Priors
+### Note about Priors
 
 For all models in this report, we use a weakly informative student-t prior. We choose student-t because it has fatter tails than the gaussian distribution, reflecting the greater frequency of extreme political beliefs.
 
@@ -94,6 +94,7 @@ summary(fit_lm_all, digits=2)
 ```
 
 After fitting the model, we use the CRAN varsel() function, which uses cross-validation to pick the variables that contribute most to the model accuracy.
+
 ```{r eval = FALSE}
 # Slow! Run once, save variable
 vs <- varsel(fit_lm_all, nv_max=40)
@@ -341,4 +342,10 @@ loo_5
 ```
 
 ## Conclusion
+
+The main conclusion is that, while Europe has common trends in what it means to identify as "left" and "right" on the political spectrum, but major differences still exist between different countries. These terms don't mean the same thing in each country, as you can see in the partially-pooled plots comparing, for example, Sweden and Poland.
+
+Despite the differences, some trends are as-expected. For example, friendliness to immigrants certainly correlates, in most countries, with being more "left" on the political spectrum. In the countries that see different correlations, perhaps it is because--in the european context--they see themselves as possible migrants to other, wealthier European countries. 
+
+We are especially interested in those countries where the first variable "Government should reduce differences in income levels" does not correlate with the traditional left-right spectrum. 
 
