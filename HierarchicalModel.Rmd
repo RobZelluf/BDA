@@ -1,10 +1,17 @@
 ---
 title: "Simple Models"
 author: "Daniel Hopkins & Rob Verbeek"
-date: "12/1/2019"
-output: html_document
+date: "8/12/2019"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '2'
+  pdf_document:
+    toc: yes
+    toc_depth: 2
 ---
-
+  
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(rstan)
@@ -12,14 +19,21 @@ library(ggplot2)
 library(corrplot)
 library(rstanarm)
 library("bayesplot")
+library(projpred)
+library(dplyr)
+library(lme4)
 theme_set(bayesplot::theme_default(base_family = "sans"))
 SEED = 1234 
 options(mc.cores = parallel::detectCores())
+
 ```
+## 0. Introduction
+We explore what variables predict political affiliation in European countries, and what models allow us to best make those predictions. We take a large dataset from the European Social Survey, clean it, and select the best predictive variables. Then we fit different models to that data. Finally, we fit a hierarchical (partially pooled) model to the data, so that we can preserve the distinctions between different countries, while also taking advantage of common political sentiments across Europe.
 
-## Reading in the ESS Data
+## 1. Data
+Our data is from the European Social Survey conducted in 2016-2017. The data has more than 30,000 survey results across more than 500 variables in 21 countries. We first filtered the columns with non-spectrum (i.e. categorical) data and also filtered out columns that were country-specific or had a high number of non-answers. After filterning, we were left with nearly 22,000 observations across 105 variables.
 
-## Data filtering
+### Data filtering
 The ESS dataset is very large, with a lot of different types of values and country-specific questions. So before running our models, we cleaned our data. Cleaning the data consists of the following steps:
 
 Remove country-specific data:
@@ -34,17 +48,10 @@ Remove sparse questions:
 Change scales:
 - The questions come in a lot of different scales, like 1-10, 1-5, 1-4 but also yes-no questions. These questions are all scaled to the 1-1- scale. For most scales this is done using a simple transformation, the yes-no questions are mapped to the values 7 and 3.
 
-
 ```{r selecting data rows and variables}
-# N = 1000 # Number of sample points
-
-set.seed(1234)
-
 ESSData <- read.csv(file="data/filtered_data2.csv", header=TRUE, sep=",")
+
 M = length(ESSData$lrscale)
-
-
-
 country = ESSData$cntry
 age = 2016 - ESSData$yrbrn
 age = age/max(age)
@@ -55,25 +62,34 @@ ESSData = data.frame(age,ESSData)
 SAMPLESIZE = 5000
 
 sample_rows = sample(seq(1,M),SAMPLESIZE)
-
 test_rows = sample(seq(1,SAMPLESIZE),1000)
 
 sample_data = data.frame(ESSData[sample_rows,])
-
 training_data = data.frame(sample_data[-test_rows,])
-
 test_data = data.frame(sample_data[test_rows,])
-
-
 ```
+
+## 2. Variable Selection
+We used two methods for variable selection. The first method is a simple correlation. Figure 1 plots a correlation matrix for the 20 variables that correlate best with the "lrscale". The plot shows that all of these variables have slight positive or negative correlations with the outcome variable. This is decent selection method. \textit{However}, it fails to account for variables that are highly correlated with eachother. For example, we can see that the variables "imdfetn" ("Allow many/few immigrants of different race/ethnic group from majority") and "impcntr" ("Allow many/few immigrants from poorer countries outside Europe") are highly correlated, so they might carry redundant information for the model. That is why the next method, variable selection using a fitted linear model, is better.
 
 ```{r correlation matrix}
-best_5 = c(29,22,41,79,85)
-sample_data_best_5 = cbind(sample_data$lrscale,sample_data[,best_5])
-sample_data_best_5 = cbind(country[sample_rows],sample_data_best_5)
-colnames(sample_data_best_5)[1] = "country"
-colnames(sample_data_best_5)[2] = "lrscale"
+c = cor(data.frame(sample_data))
+lrscale_corr = c["lrscale",]
+corr_best_variables = lrscale_corr[order(abs(lrscale_corr),decreasing=TRUE)][1:21]
+corr_best_columns = order(abs(lrscale_corr),decreasing=TRUE)[1:21]
+corr_best_variables = colnames(ESSData)[corr_best_columns[2:21]]
+corrplot(cor(data.frame(sample_data[corr_best_columns])))
 ```
+
+
+
+
+
+
+
+
+
+
 ## Pooled model
 The pooled model considers all data the same, thus not take into account the country each datapoint is from. It fits one linear model to predict the left-right scale, based on all input variables. 
 
