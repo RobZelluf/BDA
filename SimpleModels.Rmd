@@ -71,11 +71,15 @@ corr_best_variables = colnames(ESSData)[corr_best_columns[2:21]]
 corrplot(cor(data.frame(sample_data[corr_best_columns])))
 ```
 Instead of using the correlation matrix method for variable selection, we can fit a generalized linear model where the outcome follows all the 105 variables (excluding the country variable).
+
+### Priors
+
+For all models in this report, we use a weakly informative student-t prior. We choose student-t because it has fatter tails than the gaussian distribution, reflecting the greater frequency of extreme political beliefs.
+
 ```{r cache=TRUE, results=FALSE}
-# Try proj pred instead
 t_prior <- student_t(df = 5, location = 0.5, scale = 0.1)
 fit_lm_all <- stan_glm(lrscale ~ ., data=sample_data, prior = t_prior, prior_intercept = t_prior)
-print(fit_lm_all, digits=2)
+summary(fit_lm_all, digits=2)
 ```
 
 After fitting the model, we use the CRAN varsel() function, which uses cross-validation to pick the variables that contribute most to the model accuracy.
