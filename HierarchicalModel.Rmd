@@ -146,7 +146,7 @@ pplot+ geom_vline(xintercept = 0)
 ## Pooled model
 The pooled model considers all data the same, thus not take into account the country each datapoint is from. It fits one linear model to predict the left-right scale, based on all input variables. 
 
-Below is a summary of the simple linear five-predictor pooled model. Note that all rhat values are 1.0, indicating good convergence and independence of of the MCMC
+Below is a summary of the simple linear five-predictor pooled model.
 
 ```{r}
 summary(fit_lm_5)
@@ -178,8 +178,13 @@ coefficients <- coef(fit_hier_2)[1]
 ```
 
 ### Effective Sample Size
+The effective sample size in the Hierarchical Model is at least 3000 for each parameter, which is plenty!
 
 ### Rhat convergence
+All of the models have r hat values of 1.0, so the HMC chains were both convergent and independent. 
+
+### HMC-Specific diagnostics
+We received no warnings about tree depth or divergences. Therefore, we assume that the HMC chains ran properly and never exceeded the default maximum tree depth (10). Nor did we get any divergent transitions, so there was no need to adjust the default adapt_delta parameter (0.8). 
 
 ## Interesting countries:
 Sweden: Really steep slopes for most variables
@@ -385,7 +390,11 @@ ggplot(sample_n(sample_data_best_5,300)) +
 
 ## Problems and Potential Improvements
 
-We would like to further understand the differences between countries. Also, we would love to be able to explore other connections in the data set, not only predicting the political spectrum alignment. Self-identification as "left" or "right" is a limiting concept.
+We would like to further understand the differences between countries. Also, we would love to be able to explore other connections in the data set, not only predicting the political spectrum alignment. Self-identification as "left" or "right" is a limited concept without much depth.
+
+As far as the models go, one potential improvement is to use a different (non-Gaussian) link function. We do not know the distribution of our residuals, but it may not be Gaussian. In particular, the error distribution might have fatter tails, because many people have more extreme political beliefs. 
+
+Another potential improvement to explore would be to choose different variables for each of the 21 countries. The five best predictive variables might be different in Poland vs. Finland, for example, since Poland is more politically divided by social rather than economic issues.
 
 
 ## Conclusion
